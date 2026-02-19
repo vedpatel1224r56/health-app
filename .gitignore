@@ -1,0 +1,11 @@
+.env
+**/.env
+**/.env.local
+**/node_modules/
+frontend/dist/
+backend/dist/
+database/*.db
+database/backups/
+database/uploads/
+.DS_Store
+docs/.DS_Store
