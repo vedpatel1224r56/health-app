@@ -47,6 +47,7 @@ import { NotificationsWorkspace } from './components/NotificationsWorkspace'
 const API_BASE = resolveApiBase()
 const OPS_TOKEN_STORAGE_KEY = 'ops_health_token'
 const OPS_USER_STORAGE_KEY = 'ops_health_user'
+const delay = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms))
 
 function resolveDoctorConsoleKind(departmentName) {
   const normalized = String(departmentName || '').trim().toLowerCase()
@@ -250,6 +251,24 @@ function App() {
     const headers = { ...(options.headers || {}) }
     if (token) headers.Authorization = `Bearer ${token}`
     return fetch(url, { ...options, headers })
+  }
+
+  const wakeBackend = async () => {
+    try {
+      await fetch(`${API_BASE}/api/hospital/content`, { cache: 'no-store' })
+    } catch {
+      // If wake-up fails, let the original request surface the final error.
+    }
+  }
+
+  const fetchWithWakeRetry = async (url, options = {}) => {
+    try {
+      return await fetch(url, options)
+    } catch (error) {
+      await wakeBackend()
+      await delay(1200)
+      return fetch(url, options)
+    }
   }
 
   const listToText = (value) => (Array.isArray(value) ? value.join('\n') : '')
@@ -2471,7 +2490,7 @@ function App() {
     event.preventDefault()
     setAuthError('')
     try {
-      const response = await fetch(`${API_BASE}/api/auth/login`, {
+      const response = await fetchWithWakeRetry(`${API_BASE}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(authForm),
@@ -2494,7 +2513,7 @@ function App() {
       localStorage.removeItem('health_user')
       setAuthForm({ email: '', password: '' })
     } catch {
-      setAuthError('Network error. Check backend connection.')
+      setAuthError('Unable to reach the server right now. If the backend was sleeping, wait a few seconds and try again.')
     }
   }
 

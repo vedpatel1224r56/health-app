@@ -958,7 +958,7 @@ function App() {
         setAuthMode("login");
       }
     } catch (error) {
-      setAuthError("Network error. Check backend connection.");
+      setAuthError("Unable to reach the server right now. If the backend was sleeping, wait a few seconds and try again.");
     }
   };
 
