@@ -68,6 +68,8 @@ const ensureRazorpayScript = () => {
   return razorpayScriptPromise;
 };
 
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 function App() {
   const [authMode, setAuthMode] = useState("login");
   const [authError, setAuthError] = useState("");
@@ -921,7 +923,7 @@ function App() {
 
     try {
       const endpoint = authMode === "signup" ? "/api/auth/register" : "/api/auth/login";
-      const response = await fetch(`${API_BASE}${endpoint}`, {
+      const response = await fetchWithWakeRetry(`${API_BASE}${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(authForm),
@@ -1239,6 +1241,24 @@ function App() {
       headers.Authorization = `Bearer ${authToken}`;
     }
     return fetch(url, { ...options, headers });
+  };
+
+  const wakeBackend = async () => {
+    try {
+      await fetch(`${API_BASE}/api/hospital/content`, { cache: "no-store" });
+    } catch {
+      // Let the original request surface the final error if retry still fails.
+    }
+  };
+
+  const fetchWithWakeRetry = async (url, options = {}) => {
+    try {
+      return await fetch(url, options);
+    } catch (error) {
+      await wakeBackend();
+      await delay(1200);
+      return fetch(url, options);
+    }
   };
 
   const loadPaymentGatewayConfig = async () => {
