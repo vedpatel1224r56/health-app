@@ -286,6 +286,12 @@ const createInitDb = (deps) => {
     );
   }
 
+  await run(
+    `INSERT INTO departments (name, description, active, created_at)
+     VALUES (?, ?, 1, ?)
+     ON CONFLICT(name) DO NOTHING`,
+    ["General Medicine", "Default outpatient department", createdAt],
+  );
   const defaultDepartment = await get(
     "SELECT id FROM departments WHERE name = 'General Medicine' LIMIT 1",
   );
