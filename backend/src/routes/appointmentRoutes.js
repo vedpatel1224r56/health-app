@@ -39,6 +39,27 @@ const registerAppointmentRoutes = (fastify, deps) => {
   const BILLING_ALLOWED_STATUSES = new Set(["unpaid", "paid", "partial", "waived"]);
   const PAYMENT_REFERENCE_TYPES = new Set(["appointment", "teleconsult"]);
   const teleconsultEventStreams = new Map();
+  const indiaDateTimeFormatter = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+
+  const getIndiaSlotParts = (value) => {
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) return null;
+    const parts = indiaDateTimeFormatter.formatToParts(date);
+    const lookup = Object.fromEntries(parts.filter((part) => part.type !== "literal").map((part) => [part.type, part.value]));
+    if (!lookup.year || !lookup.month || !lookup.day || !lookup.hour || !lookup.minute) return null;
+    return {
+      dateText: `${lookup.year}-${lookup.month}-${lookup.day}`,
+      timeText: `${lookup.hour}:${lookup.minute}`,
+    };
+  };
 
   const sendSseEvent = (stream, event, payload) => {
     try {
@@ -353,14 +374,15 @@ const registerAppointmentRoutes = (fastify, deps) => {
       return reply.code(404).send({ error: "Selected doctor not found." });
     }
 
-    const slotDate = new Date(preferredSlot);
-    const dateText = `${slotDate.getFullYear()}-${String(slotDate.getMonth() + 1).padStart(2, "0")}-${String(slotDate.getDate()).padStart(2, "0")}`;
-    const requestedTime = `${String(slotDate.getHours()).padStart(2, "0")}:${String(slotDate.getMinutes()).padStart(2, "0")}`;
-    const availableSlots = await buildDoctorSlots(Number(doctorId), dateText);
+    const slotParts = getIndiaSlotParts(preferredSlot);
+    if (!slotParts) {
+      return reply.code(400).send({ error: "preferredSlot must be a valid datetime." });
+    }
+    const availableSlots = await buildDoctorSlots(Number(doctorId), slotParts.dateText);
     if (availableSlots.error) {
       return reply.code(400).send({ error: availableSlots.error });
     }
-    const slotAllowed = availableSlots.slots.some((slot) => slot.time === requestedTime);
+    const slotAllowed = availableSlots.slots.some((slot) => slot.time === slotParts.timeText);
     if (!slotAllowed) {
       return reply.code(409).send({ error: "Selected slot is no longer available." });
     }
@@ -1251,14 +1273,15 @@ const registerAppointmentRoutes = (fastify, deps) => {
     if (!doctor) {
       return reply.code(404).send({ error: "Selected doctor not found." });
     }
-    const appointmentDate = new Date(scheduledAt);
-    const dateText = `${appointmentDate.getFullYear()}-${String(appointmentDate.getMonth() + 1).padStart(2, "0")}-${String(appointmentDate.getDate()).padStart(2, "0")}`;
-    const requestedTime = `${String(appointmentDate.getHours()).padStart(2, "0")}:${String(appointmentDate.getMinutes()).padStart(2, "0")}`;
-    const availableSlots = await buildDoctorSlots(Number(doctorId), dateText);
+    const slotParts = getIndiaSlotParts(scheduledAt);
+    if (!slotParts) {
+      return reply.code(400).send({ error: "scheduledAt must be a valid datetime." });
+    }
+    const availableSlots = await buildDoctorSlots(Number(doctorId), slotParts.dateText);
     if (availableSlots.error) {
       return reply.code(400).send({ error: availableSlots.error });
     }
-    const slotAllowed = availableSlots.slots.some((slot) => slot.time === requestedTime);
+    const slotAllowed = availableSlots.slots.some((slot) => slot.time === slotParts.timeText);
     if (!slotAllowed) {
       return reply.code(409).send({ error: "Selected slot is no longer available." });
     }
@@ -1405,14 +1428,15 @@ const registerAppointmentRoutes = (fastify, deps) => {
       return reply.code(404).send({ error: "Selected doctor not found." });
     }
 
-    const appointmentDate = new Date(scheduledAt);
-    const dateText = `${appointmentDate.getFullYear()}-${String(appointmentDate.getMonth() + 1).padStart(2, "0")}-${String(appointmentDate.getDate()).padStart(2, "0")}`;
-    const requestedTime = `${String(appointmentDate.getHours()).padStart(2, "0")}:${String(appointmentDate.getMinutes()).padStart(2, "0")}`;
-    const availableSlots = await buildDoctorSlots(Number(doctorId), dateText);
+    const slotParts = getIndiaSlotParts(scheduledAt);
+    if (!slotParts) {
+      return reply.code(400).send({ error: "scheduledAt must be a valid datetime." });
+    }
+    const availableSlots = await buildDoctorSlots(Number(doctorId), slotParts.dateText);
     if (availableSlots.error) {
       return reply.code(400).send({ error: availableSlots.error });
     }
-    const slotAllowed = availableSlots.slots.some((slot) => slot.time === requestedTime);
+    const slotAllowed = availableSlots.slots.some((slot) => slot.time === slotParts.timeText);
     if (!slotAllowed) {
       return reply.code(409).send({ error: "Selected slot is no longer available." });
     }
@@ -1613,13 +1637,15 @@ const registerAppointmentRoutes = (fastify, deps) => {
       return reply.code(409).send({ error: "Only requested/approved appointments can be rescheduled." });
     }
     const nextDate = new Date(scheduledAt);
-    const dateText = `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, "0")}-${String(nextDate.getDate()).padStart(2, "0")}`;
-    const requestedTime = `${String(nextDate.getHours()).padStart(2, "0")}:${String(nextDate.getMinutes()).padStart(2, "0")}`;
-    const availableSlots = await buildDoctorSlots(Number(appointment.doctor_id), dateText);
+    const slotParts = getIndiaSlotParts(scheduledAt);
+    if (!slotParts) {
+      return reply.code(400).send({ error: "Valid appointment and scheduledAt are required." });
+    }
+    const availableSlots = await buildDoctorSlots(Number(appointment.doctor_id), slotParts.dateText);
     if (availableSlots.error) {
       return reply.code(400).send({ error: availableSlots.error });
     }
-    const slotAllowed = availableSlots.slots.some((slot) => slot.time === requestedTime);
+    const slotAllowed = availableSlots.slots.some((slot) => slot.time === slotParts.timeText);
     if (!slotAllowed) {
       return reply.code(409).send({ error: "Selected slot is not available." });
     }
@@ -1824,11 +1850,11 @@ const registerAppointmentRoutes = (fastify, deps) => {
     );
     if (!doctorRow) return reply.code(404).send({ error: "Selected doctor is not active in this department." });
 
-    const dateText = `${nextScheduledAt.getFullYear()}-${String(nextScheduledAt.getMonth() + 1).padStart(2, "0")}-${String(nextScheduledAt.getDate()).padStart(2, "0")}`;
-    const requestedTime = `${String(nextScheduledAt.getHours()).padStart(2, "0")}:${String(nextScheduledAt.getMinutes()).padStart(2, "0")}`;
-    const availableSlots = await buildDoctorSlots(nextDoctorId, dateText, { excludeAppointmentId: appointmentId });
+    const slotParts = getIndiaSlotParts(nextScheduledAt);
+    if (!slotParts) return reply.code(400).send({ error: "Valid scheduled time is required." });
+    const availableSlots = await buildDoctorSlots(nextDoctorId, slotParts.dateText, { excludeAppointmentId: appointmentId });
     if (availableSlots.error) return reply.code(400).send({ error: availableSlots.error });
-    const slotAllowed = availableSlots.slots.some((slot) => slot.time === requestedTime);
+    const slotAllowed = availableSlots.slots.some((slot) => slot.time === slotParts.timeText);
     if (!slotAllowed) return reply.code(409).send({ error: "Selected slot is no longer available for this doctor." });
 
     await run(
