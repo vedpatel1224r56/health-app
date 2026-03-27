@@ -285,18 +285,23 @@
 
 .form label,
 .form input,
-.form select {
+.form select,
+.form textarea {
   font-family: "Space Grotesk", sans-serif;
 }
 
 .form input,
-.form select {
+.form select,
+.form textarea {
   width: 100%;
   padding: 10px 12px;
   border-radius: 12px;
   border: 1px solid #d7ddd8;
   background: #f9fbfa;
   margin-top: 6px;
+}
+.form textarea {
+  resize: vertical;
 }
 
 .form input[type="file"] {
@@ -429,6 +434,27 @@
   display: block;
 }
 
+.remove-btn {
+  width: 100%;
+  border: none;
+  border-top: 1px solid #e1e6e3;
+  padding: 10px 12px;
+  background: #fff;
+  color: #8c1b1b;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.remove-link {
+  border: none;
+  background: transparent;
+  color: #8c1b1b;
+  cursor: pointer;
+  padding: 0;
+  font-size: 0.85rem;
+  justify-self: start;
+}
+
 .panel-mini {
   background: #f7f6f0;
   border-radius: 18px;
@@ -439,6 +465,13 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.auth-card {
+  padding: 14px;
+  border: 1px solid #e1e6e3;
+  border-radius: 16px;
+  background: #fbfcfb;
 }
 
 .auth-toggle {
@@ -623,6 +656,29 @@
   background: #f8fbf9;
   display: grid;
   gap: 10px;
+}
+
+.consult-card {
+  margin-top: 12px;
+}
+
+.consult-thread {
+  display: grid;
+  gap: 8px;
+  max-height: 220px;
+  overflow: auto;
+  padding: 8px;
+  border: 1px solid #e1e6e3;
+  border-radius: 12px;
+  background: #f8fbf9;
+}
+
+.consult-thread .chat-msg {
+  max-width: 100%;
+}
+
+.consult-thread .chat-msg p {
+  margin: 0;
 }
 
 .qr-box {

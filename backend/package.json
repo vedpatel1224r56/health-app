@@ -4,9 +4,16 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node --test tests/*.test.js",
     "dev": "nodemon src/server.js",
-    "start": "node src/server.js"
+    "start": "node src/server.js",
+    "report:validate": "node scripts/report_validate.js",
+    "report:validate:samples": "node scripts/report_validate.js --expect tests/report_expectations.json",
+    "report:validate:extended": "node scripts/report_validate.js --expect tests/report_expectations_extended.json",
+    "env:check": "node scripts/check_env_hygiene.js",
+    "secret:rotate:jwt": "node scripts/rotate_jwt_secret.js",
+    "backup:run": "bash scripts/backup_db.sh",
+    "backup:restore-test": "node scripts/restore_test.js"
   },
   "keywords": [],
   "author": "",
@@ -19,6 +26,7 @@
     "dotenv": "^17.2.4",
     "fastify": "^5.7.4",
     "jsonwebtoken": "^9.0.2",
+    "pg": "^8.13.1",
     "sqlite3": "^5.1.7"
   },
   "devDependencies": {

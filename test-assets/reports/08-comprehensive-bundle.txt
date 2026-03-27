@@ -1,0 +1,28 @@
+KOTAK ADVANCED LAB
+Patient Name: Demo Patient H
+Age/Sex: 47 Years / Male
+Report Date: 2026-03-20
+
+COMPLETE BLOOD COUNT
+Hemoglobin 13.4 g/dL
+WBC 8.4 10^3/uL
+Platelet Count 312 10^3/uL
+
+C-REACTIVE PROTEIN
+CRP Quantitative 4 mg/L
+
+LIVER FUNCTION TEST
+Total Bilirubin 1.2 mg/dL
+SGPT / ALT 42 U/L
+SGOT / AST 34 U/L
+
+RENAL FUNCTION TEST
+Creatinine 1.1 mg/dL
+Urea 36 mg/dL
+
+THYROID PROFILE
+TSH 3.2 uIU/mL
+
+HAEMOGLOBIN A1C ESTIMATION
+HbA1c 6.8 %
+Estimated Average Blood Glucose 148 mg/dL

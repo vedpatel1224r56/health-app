@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8080";
+const MARKETPLACE_REFRESH_KEY = "health_marketplace_requests_refresh";
 
 const copy = {
   en: {
@@ -45,6 +46,11 @@ const copy = {
     guidanceNote:
       "Guidance is not a diagnosis and does not replace a clinician.",
     account: "Account",
+    patientPortal: "Patient login",
+    doctorPortal: "Doctor login",
+    continueAsDoctor: "Open doctor dashboard",
+    doctorNoAccess: "Doctor access is not enabled for this account yet.",
+    doctorSignupInfo: "Doctor account created. Admin approval is required before console access.",
     signIn: "Sign in",
     create: "Create",
     name: "Name",
@@ -63,6 +69,8 @@ const copy = {
     historyTitle: "History",
     historyEmpty: "No triage history yet.",
     historySignIn: "Sign in to view your recent guidance.",
+    historyShowMore: "Show full history",
+    historyShowLess: "Show less",
     directoryTitle: "Doctor directory (coming soon)",
     directoryDesc:
       "We are building a verified list of local doctors, clinics, and community health workers. This will go live after validation.",
@@ -72,6 +80,68 @@ const copy = {
     directoryCard2Desc: "Connect with trusted local health guides.",
     directoryCard3: "Tele-consult partners",
     directoryCard3Desc: "Book calls after triage when needed.",
+    teleTitle: "Connect doctor",
+    teleSubtitle: "Book remote consults and share follow-up updates from home.",
+    teleMode: "Consult type",
+    teleModeVideo: "Video",
+    teleModeAudio: "Audio",
+    teleModeChat: "Chat",
+    teleConcern: "Primary concern",
+    teleConcernPlaceholder: "Describe symptoms, context, and what help you need.",
+    teleSlot: "Preferred slot",
+    telePhone: "Phone for callback",
+    teleBook: "Book teleconsult",
+    teleStatus: "Status",
+    teleEmpty: "No teleconsult requests yet.",
+    teleOpenThread: "Open thread",
+    teleThreadTitle: "Consult thread",
+    teleMessagePlaceholder: "Share update for doctor...",
+    teleSend: "Send update",
+    teleLoading: "Loading teleconsults...",
+    teleBooked: "Teleconsult request submitted.",
+    teleError: "Unable to process teleconsult request.",
+    teleStatusRequested: "Requested",
+    teleStatusScheduled: "Scheduled",
+    teleStatusInProgress: "In progress",
+    teleStatusCompleted: "Completed",
+    teleStatusCancelled: "Cancelled",
+    careRequestType: "Visit type",
+    careRequestInPerson: "In-person appointment",
+    careRequestFeedTitle: "Your doctor requests",
+    apptTitle: "Appointments",
+    apptBook: "Book appointment",
+    apptDepartment: "Department",
+    apptReason: "Reason",
+    apptDateTime: "Preferred date/time",
+    apptEmpty: "No appointments yet.",
+    encounterTitle: "Doctor clinical records",
+    encounterEmpty: "No doctor records yet.",
+    encounterOpen: "Open record",
+    encounterDoctor: "Doctor",
+    encounterDiagnosis: "Diagnosis",
+    encounterPlan: "Plan",
+    encounterVitals: "Vitals",
+    encounterNotes: "Doctor notes",
+    encounterPrescription: "Prescription",
+    encounterOrders: "Orders",
+    doctorChartTitle: "Doctor charting",
+    doctorChartCreate: "Create encounter",
+    chiefComplaint: "Chief complaint",
+    findings: "Findings",
+    diagnosisCode: "Diagnosis",
+    diagnosisText: "Diagnosis",
+    planText: "Care plan",
+    followupDate: "Follow-up date",
+    addNote: "Add signed note",
+    signature: "Signature",
+    noteText: "Note text",
+    addPrescription: "Add prescription",
+    medicines: "Medicines",
+    addOrder: "Add order",
+    orderType: "Order type",
+    orderItem: "Order item",
+    destination: "Destination",
+    saveEncounter: "Save encounter",
     howTitle: "How it works",
     howBody:
       "1. Share symptoms in under 4 minutes. 2. AI triage checks for red flags and urgency. 3. Receive safe guidance and next steps.",
@@ -119,6 +189,7 @@ const copy = {
     passFailed: "Unable to generate pass.",
     triageSource: "Guidance source",
     sourceFallback: "Fallback rules",
+    sourceLocalModel: "Local ML model",
     sourceGemini: "Gemini AI",
     sourceOpenai: "OpenAI",
     doctorViewTitle: "Doctor summary view",
@@ -173,9 +244,17 @@ const copy = {
     generateEmergencyCard: "Generate emergency card",
     openEmergencyCard: "Open emergency card",
     shareHistory: "Share history",
-    printHealthCard: "Print health card",
     downloadVisitPdf: "Download visit summary PDF",
     clinicTitle: "Clinic starter page",
+    doctorConsoleTitle: "Doctor dashboard",
+    doctorConsoleSubtitle: "Manage remote consult requests and respond to patients.",
+    doctorConsoleSignIn: "Doctor/admin sign in required.",
+    doctorConsoleNoAccess: "Your account does not have doctor access.",
+    doctorConsoleUpdate: "Update consult",
+    doctorConsoleMeetingUrl: "Meeting URL",
+    doctorConsoleSave: "Save status",
+    doctorConsoleSaved: "Consult status updated.",
+    doctorConsoleOpen: "Open doctor dashboard",
     clinicCodePlaceholder: "Enter 6-digit code",
     clinicOpen: "Open patient summary",
     doctorLanguage: "Doctor language",
@@ -187,6 +266,15 @@ const copy = {
     clinicScannerActive: "Scanner active. Point camera at SehatSaathi QR.",
     clinicScanInvalid: "QR scanned, but no valid share code found.",
     doctorDownloadRecord: "Download record",
+    removePhoto: "Remove photo",
+    removeRecord: "Delete",
+    triageModeGeneral: "General",
+    triageModeDental: "Dental",
+    dentalSymptoms: "Dental symptoms",
+    dentalPainScale: "Dental pain scale (1-10)",
+    dentalHotColdTrigger: "Pain triggered by hot/cold",
+    dentalSwelling: "Visible facial/gum swelling",
+    dentalRedFlags: "Dental red flags",
   },
   gu: {
     brandTitle: "સેહતસાથી",
@@ -230,6 +318,11 @@ const copy = {
     guidanceNote:
       "આ નિદાન નથી અને ડૉક્ટરને બદલે નહીં.",
     account: "એકાઉન્ટ",
+    patientPortal: "પેશન્ટ લોગિન",
+    doctorPortal: "ડૉક્ટર લોગિન",
+    continueAsDoctor: "ડૉક્ટર ડેશબોર્ડ ખોલો",
+    doctorNoAccess: "આ એકાઉન્ટ માટે ડૉક્ટર ઍક્સેસ હજુ સક્રિય નથી.",
+    doctorSignupInfo: "ડૉક્ટર એકાઉન્ટ બનાવાયું. કન્સોલ ઍક્સેસ માટે એડમિન મંજૂરી જરૂરી છે.",
     signIn: "સાઇન ઇન",
     create: "બનાવો",
     name: "નામ",
@@ -248,6 +341,8 @@ const copy = {
     historyTitle: "ઇતિહાસ",
     historyEmpty: "હજુ ટ્રાયેજ ઇતિહાસ નથી.",
     historySignIn: "તાજેતરનું માર્ગદર્શન જોવા સાઇન ઇન કરો.",
+    historyShowMore: "પૂર્ણ ઇતિહાસ જુઓ",
+    historyShowLess: "ઓછું બતાવો",
     directoryTitle: "ડૉક્ટર ડિરેક્ટરી (જલ્દી આવી રહી છે)",
     directoryDesc:
       "અમે સ્થાનિક ડૉક્ટરો, ક્લિનિક્સ અને સમુદાય આરોગ્ય કર્મીઓની ચકાસેલી સૂચિ બનાવી રહ્યા છીએ.",
@@ -257,6 +352,34 @@ const copy = {
     directoryCard2Desc: "વિશ્વસનીય સ્થાનિક આરોગ્ય માર્ગદર્શકો જોડાવો.",
     directoryCard3: "ટેલિ-કન્સલ્ટ પાર્ટનર્સ",
     directoryCard3Desc: "જરૂર પડે ત્યારે કોલ બુક કરો.",
+    teleTitle: "ઘરેથી ડૉક્ટર કનેક્ટ",
+    teleSubtitle: "ઘરે બેઠા ટેલિકન્સલ્ટ બુક કરો અને ફોલો-અપ અપડેટ મોકલો.",
+    teleMode: "કન્સલ્ટ પ્રકાર",
+    teleModeVideo: "વિડિયો",
+    teleModeAudio: "ઑડિયો",
+    teleModeChat: "ચેટ",
+    teleConcern: "મુખ્ય સમસ્યા",
+    teleConcernPlaceholder: "લક્ષણો અને જરૂરી મદદ ટૂંકમાં લખો.",
+    teleSlot: "પસંદીદા સમય",
+    telePhone: "કૉલબેક ફોન",
+    teleBook: "ટેલિકન્સલ્ટ બુક કરો",
+    teleStatus: "સ્થિતિ",
+    teleEmpty: "હજુ સુધી ટેલિકન્સલ્ટ વિનંતી નથી.",
+    teleOpenThread: "થ્રેડ ખોલો",
+    teleThreadTitle: "કન્સલ્ટ થ્રેડ",
+    teleMessagePlaceholder: "ડૉક્ટર માટે અપડેટ લખો...",
+    teleSend: "મોકલો",
+    teleLoading: "ટેલિકન્સલ્ટ લોડ થઈ રહ્યું છે...",
+    teleBooked: "ટેલિકન્સલ્ટ વિનંતી મોકલાઈ.",
+    teleError: "ટેલિકન્સલ્ટ વિનંતી પ્રક્રિયા થઈ શકી નહીં.",
+    teleStatusRequested: "વિનંતી મોકલાઈ",
+    teleStatusScheduled: "શેડ્યૂલ",
+    teleStatusInProgress: "ચાલુ",
+    teleStatusCompleted: "પૂર્ણ",
+    teleStatusCancelled: "રદ",
+    careRequestType: "વિઝિટ પ્રકાર",
+    careRequestInPerson: "સામે-સામે અપોઇન્ટમેન્ટ",
+    careRequestFeedTitle: "તમારી ડૉક્ટર વિનંતીઓ",
     howTitle: "કેવી રીતે કામ કરે છે",
     howBody:
       "1. 4 મિનિટમાં લક્ષણો શેર કરો. 2. ટ્રાયેજ રેડ ફ્લેગ અને તાત્કાલિકતા ચેક કરે છે. 3. સુરક્ષિત માર્ગદર્શન મેળવો.",
@@ -304,6 +427,7 @@ const copy = {
     passFailed: "હેલ્થ પાસ બનાવી શકાયો નહીં.",
     triageSource: "માર્ગદર્શન સ્ત્રોત",
     sourceFallback: "ફોલબેક નિયમો",
+    sourceLocalModel: "લોકલ ML મોડલ",
     sourceGemini: "Gemini AI",
     sourceOpenai: "OpenAI",
     doctorViewTitle: "ડૉક્ટર સમરી વ્યૂ",
@@ -358,9 +482,17 @@ const copy = {
     generateEmergencyCard: "ઇમરજન્સી કાર્ડ બનાવો",
     openEmergencyCard: "ઇમરજન્સી કાર્ડ ખોલો",
     shareHistory: "શેર ઇતિહાસ",
-    printHealthCard: "હેલ્થ કાર્ડ પ્રિન્ટ કરો",
     downloadVisitPdf: "વિઝિટ સમરી PDF ડાઉનલોડ કરો",
     clinicTitle: "ક્લિનિક સ્ટાર્ટર પેજ",
+    doctorConsoleTitle: "ડૉક્ટર ડેશબોર્ડ",
+    doctorConsoleSubtitle: "રિમોટ કન્સલ્ટ વિનંતીઓ મેનેજ કરો અને દર્દીને જવાબ આપો.",
+    doctorConsoleSignIn: "ડૉક્ટર/એડમિન સાઇન ઇન જરૂરી.",
+    doctorConsoleNoAccess: "તમારા એકાઉન્ટ પાસે ડૉક્ટર ઍક્સેસ નથી.",
+    doctorConsoleUpdate: "કન્સલ્ટ અપડેટ",
+    doctorConsoleMeetingUrl: "મીટિંગ URL",
+    doctorConsoleSave: "સ્થિતિ સાચવો",
+    doctorConsoleSaved: "કન્સલ્ટ સ્થિતિ અપડેટ થઈ.",
+    doctorConsoleOpen: "ડૉક્ટર ડેશબોર્ડ ખોલો",
     clinicCodePlaceholder: "6-અંક કોડ દાખલ કરો",
     clinicOpen: "પેશન્ટ સમરી ખોલો",
     doctorLanguage: "ડૉક્ટર ભાષા",
@@ -372,6 +504,15 @@ const copy = {
     clinicScannerActive: "સ્કેનર ચાલુ છે. કેમેરા QR પર લાવો.",
     clinicScanInvalid: "QR વાંચાયું, પરંતુ માન્ય શેર કોડ મળ્યો નથી.",
     doctorDownloadRecord: "રેકોર્ડ ડાઉનલોડ કરો",
+    removePhoto: "ફોટો દૂર કરો",
+    removeRecord: "ડિલીટ",
+    triageModeGeneral: "જનરલ",
+    triageModeDental: "ડેન્ટલ",
+    dentalSymptoms: "ડેન્ટલ લક્ષણો",
+    dentalPainScale: "ડેન્ટલ પેઇન સ્કેલ (1-10)",
+    dentalHotColdTrigger: "ગરમ/ઠંડાથી દુખાવો વધે છે",
+    dentalSwelling: "ચહેરા/મસૂડામાં સોજો દેખાય છે",
+    dentalRedFlags: "ડેન્ટલ રેડ ફ્લેગ્સ",
   },
 };
 
@@ -397,6 +538,26 @@ const redFlagOptions = [
   "Severe allergic reaction",
   "Stroke-like symptoms",
   "Suicidal thoughts",
+];
+
+const dentalSymptomsOptions = [
+  "Tooth pain",
+  "Gum swelling",
+  "Bleeding gums",
+  "Tooth sensitivity",
+  "Broken tooth",
+  "Wisdom tooth pain",
+  "Mouth ulcer",
+  "Bad breath",
+  "Jaw pain",
+];
+
+const dentalRedFlagOptions = [
+  "Facial swelling with fever",
+  "Difficulty swallowing",
+  "Difficulty breathing",
+  "Uncontrolled oral bleeding",
+  "Trauma with severe bleeding",
 ];
 
 const symptomTranslations = {
@@ -471,11 +632,35 @@ function App() {
   const [authToken, setAuthToken] = useState("");
   const [language, setLanguage] = useState("en");
   const [showDisclaimer, setShowDisclaimer] = useState(false);
+  const [sessionReady, setSessionReady] = useState(false);
   const [authForm, setAuthForm] = useState({
     name: "",
     email: "",
     password: "",
   });
+  const [portalType, setPortalType] = useState("patient");
+  const [doctorAuthMode, setDoctorAuthMode] = useState("login");
+  const [doctorAuthError, setDoctorAuthError] = useState("");
+  const [doctorAuthForm, setDoctorAuthForm] = useState({
+    name: "",
+    email: "",
+    password: "",
+  });
+  const [resetForm, setResetForm] = useState({
+    email: "",
+    token: "",
+    newPassword: "",
+  });
+  const [resetStatus, setResetStatus] = useState("");
+  const [resetTokenPreview, setResetTokenPreview] = useState("");
+  const [adminUsers, setAdminUsers] = useState([]);
+  const [adminUsersStatus, setAdminUsersStatus] = useState("");
+  const [adminSavingUserId, setAdminSavingUserId] = useState(null);
+  const [adminOps, setAdminOps] = useState(null);
+  const [adminOpsStatus, setAdminOpsStatus] = useState("");
+  const [opsQueue, setOpsQueue] = useState([]);
+  const [opsQueueStatus, setOpsQueueStatus] = useState("");
+  const [billingDrafts, setBillingDrafts] = useState({});
 
   const [profileForm, setProfileForm] = useState({
     age: "",
@@ -489,13 +674,22 @@ function App() {
   const [triageForm, setTriageForm] = useState({
     age: "",
     sex: "Female",
-    durationDays: 2,
-    severity: 3,
+    durationDays: 0,
+    severity: 0,
     symptoms: [],
     additionalSymptoms: "",
     redFlags: [],
     photoFile: null,
     photoPreview: "",
+  });
+  const [triageType, setTriageType] = useState("general");
+  const [dentalForm, setDentalForm] = useState({
+    durationDays: 0,
+    painScale: 0,
+    symptoms: [],
+    redFlags: [],
+    hotColdTrigger: false,
+    swelling: false,
   });
 
   const [triageResult, setTriageResult] = useState(null);
@@ -503,6 +697,7 @@ function App() {
   const [triageError, setTriageError] = useState("");
   const [history, setHistory] = useState([]);
   const [historyStatus, setHistoryStatus] = useState("");
+  const [historyExpanded, setHistoryExpanded] = useState(false);
   const [sharePass, setSharePass] = useState(null);
   const [sharePassStatus, setSharePassStatus] = useState("");
   const [doctorViewData, setDoctorViewData] = useState(null);
@@ -524,6 +719,77 @@ function App() {
   const [records, setRecords] = useState([]);
   const [recordStatus, setRecordStatus] = useState("");
   const [shareHistory, setShareHistory] = useState([]);
+  const [teleconsults, setTeleconsults] = useState([]);
+  const [teleLoading, setTeleLoading] = useState(false);
+  const [teleStatus, setTeleStatus] = useState("");
+  const [teleForm, setTeleForm] = useState({
+    mode: "video",
+    concern: "",
+    preferredSlot: "",
+    phone: "",
+  });
+  const [careRequestMode, setCareRequestMode] = useState("in_person");
+  const [activeConsultId, setActiveConsultId] = useState(null);
+  const [consultMessages, setConsultMessages] = useState([]);
+  const [consultMessageText, setConsultMessageText] = useState("");
+  const [consultMessageStatus, setConsultMessageStatus] = useState("");
+  const [doctorConsoleForm, setDoctorConsoleForm] = useState({
+    status: "requested",
+    meetingUrl: "",
+  });
+  const [doctorConsoleStatus, setDoctorConsoleStatus] = useState("");
+  const [appointments, setAppointments] = useState([]);
+  const [appointmentsStatus, setAppointmentsStatus] = useState("");
+  const [departments, setDepartments] = useState([]);
+  const [departmentDoctors, setDepartmentDoctors] = useState([]);
+  const [appointmentForm, setAppointmentForm] = useState({
+    departmentId: "",
+    doctorId: "",
+    reason: "",
+    appointmentDate: "",
+    slotTime: "",
+  });
+  const [availableSlots, setAvailableSlots] = useState([]);
+  const [slotStatus, setSlotStatus] = useState("");
+  const [encounters, setEncounters] = useState([]);
+  const [encounterStatus, setEncounterStatus] = useState("");
+  const [activeEncounterId, setActiveEncounterId] = useState(null);
+  const [encounterDetail, setEncounterDetail] = useState(null);
+  const [labMode, setLabMode] = useState("home");
+  const [pharmacyMode, setPharmacyMode] = useState("home_delivery");
+  const [labListings, setLabListings] = useState([]);
+  const [pharmacyListings, setPharmacyListings] = useState([]);
+  const [marketplaceRequests, setMarketplaceRequests] = useState([]);
+  const [marketplaceStatus, setMarketplaceStatus] = useState("");
+  const [doctorChartForm, setDoctorChartForm] = useState({
+    appointmentId: "",
+    chiefComplaint: "",
+    findings: "",
+    diagnosis: "",
+    planText: "",
+    followupDate: "",
+    vitals: "",
+  });
+  const [doctorChartStatus, setDoctorChartStatus] = useState("");
+  const [scheduleForm, setScheduleForm] = useState([
+    { weekday: 1, startTime: "10:00", endTime: "13:00", slotMinutes: 20 },
+    { weekday: 2, startTime: "10:00", endTime: "13:00", slotMinutes: 20 },
+    { weekday: 3, startTime: "10:00", endTime: "13:00", slotMinutes: 20 },
+    { weekday: 4, startTime: "10:00", endTime: "13:00", slotMinutes: 20 },
+    { weekday: 5, startTime: "10:00", endTime: "13:00", slotMinutes: 20 },
+  ]);
+  const [scheduleStatus, setScheduleStatus] = useState("");
+  const [noteForm, setNoteForm] = useState({ note: "", signature: "" });
+  const [prescriptionForm, setPrescriptionForm] = useState({
+    instructions: "",
+    itemsText: "",
+  });
+  const [orderForm, setOrderForm] = useState({
+    orderType: "lab",
+    itemName: "",
+    destination: "",
+    notes: "",
+  });
   const [clinicCode, setClinicCode] = useState("");
   const [clinicStatus, setClinicStatus] = useState("");
   const [scannerActive, setScannerActive] = useState(false);
@@ -548,15 +814,19 @@ function App() {
     },
   ]);
 
+  const currentPath = useMemo(() => window.location.pathname.replace(/\/+$/, "") || "/", []);
   const doctorCode = useMemo(() => {
     const parts = window.location.pathname.split("/").filter(Boolean);
     if (parts[0] === "doctor-view" && parts[1]) return parts[1];
     return null;
   }, []);
-  const clinicMode = useMemo(
-    () => window.location.pathname.replace(/\/+$/, "") === "/clinic",
-    [],
+  const clinicMode = useMemo(() => currentPath === "/clinic", [currentPath]);
+  const doctorConsoleMode = useMemo(
+    () => currentPath === "/doctor-console" || currentPath === "/doctor-dashboard",
+    [currentPath],
   );
+  const labsPageMode = useMemo(() => currentPath === "/labs", [currentPath]);
+  const pharmacyPageMode = useMemo(() => currentPath === "/pharmacy", [currentPath]);
   const emergencyPublicId = useMemo(() => {
     const parts = window.location.pathname.split("/").filter(Boolean);
     if (parts[0] === "emergency" && parts[1]) return parts[1];
@@ -567,6 +837,7 @@ function App() {
   const clinicVideoRef = useRef(null);
   const scannerStreamRef = useRef(null);
   const scannerIntervalRef = useRef(null);
+  const recordsInputRef = useRef(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -597,6 +868,7 @@ function App() {
     if (!accepted) {
       setShowDisclaimer(true);
     }
+    setSessionReady(true);
   }, []);
 
   useEffect(() => {
@@ -634,6 +906,200 @@ function App() {
     symptomTranslations[language]?.[label] || label;
   const format = (text, params = {}) =>
     text.replace(/\{(\w+)\}/g, (_, key) => params[key] || "");
+  const teleStatusLabel = (status) => {
+    const map = {
+      requested: t("teleStatusRequested"),
+      scheduled: t("teleStatusScheduled"),
+      in_progress: t("teleStatusInProgress"),
+      completed: t("teleStatusCompleted"),
+      cancelled: t("teleStatusCancelled"),
+    };
+    return map[status] || status;
+  };
+  const weekdayLabel = (weekday) =>
+    ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][weekday] ||
+    String(weekday);
+  const renderMarketplacePage = (type) => {
+    const isLabs = type === "labs";
+    const title = isLabs ? "Labs marketplace" : "Pharmacy marketplace";
+    const subtitle = isLabs
+      ? "Compare nearby lab packages by price, speed, and visit mode."
+      : "Compare nearby pharmacies by delivery fee, speed, and fulfilment mode.";
+    const items = isLabs ? labListings : pharmacyListings;
+
+    return (
+      <div className="app">
+        <main className="doctor-view">
+          <section className="panel">
+            <div className="action-row">
+              <h1>{title}</h1>
+              <a className="secondary" href="/">
+                Back to patient portal
+              </a>
+            </div>
+            {!sessionReady || (authToken && !user) ? (
+              <p className="micro">Loading...</p>
+            ) : !user ? (
+              <p className="micro">Sign in as a patient first, then open this page again.</p>
+            ) : isOpsUser ? (
+              <p className="micro">This marketplace is available only in the patient portal.</p>
+            ) : (
+              <>
+                <p className="panel-sub">{subtitle}</p>
+                <label className="block">
+                  {isLabs ? "Collection mode" : "Fulfilment mode"}
+                  <select
+                    value={isLabs ? labMode : pharmacyMode}
+                    onChange={(event) =>
+                      isLabs ? setLabMode(event.target.value) : setPharmacyMode(event.target.value)
+                    }
+                  >
+                    {isLabs ? (
+                      <>
+                        <option value="home">Home visit</option>
+                        <option value="all">In-person / Any</option>
+                      </>
+                    ) : (
+                      <>
+                        <option value="home_delivery">Home delivery</option>
+                        <option value="pickup">Pickup / In-store</option>
+                      </>
+                    )}
+                  </select>
+                </label>
+                <div className="history-list">
+                  {items.map((item) =>
+                    isLabs ? (
+                      <div key={`lab-page-${item.id}`} className="history-card">
+                        <p className="history-headline">
+                          {item.package_name} • Rs {item.effective_price}
+                        </p>
+                        <p className="micro">
+                          {item.partner_name} • {item.area_label || "Nearby"}
+                        </p>
+                        <p className="micro">
+                          {item.distance_km} km • {item.eta_minutes} min
+                          {item.home_collection_available ? " • Home visit available" : " • In-person only"}
+                        </p>
+                        <div className="action-row">
+                          {item.home_collection_available && (
+                            <button
+                              className="secondary"
+                              type="button"
+                              onClick={() =>
+                                createMarketplaceRequest({
+                                  requestType: "lab",
+                                  partnerId: item.id,
+                                  serviceName: item.package_name,
+                                  fulfillmentMode: "home_visit",
+                                  listedPrice:
+                                    item.home_visit_price !== null ? item.home_visit_price : item.price,
+                                  notes: `${item.partner_name} • home collection`,
+                                })
+                              }
+                            >
+                              Book home visit
+                            </button>
+                          )}
+                          <button
+                            className="primary"
+                            type="button"
+                            onClick={() =>
+                              createMarketplaceRequest({
+                                requestType: "lab",
+                                partnerId: item.id,
+                                serviceName: item.package_name,
+                                fulfillmentMode: "in_person",
+                                listedPrice: item.price,
+                                notes: `${item.partner_name} • in-person`,
+                              })
+                            }
+                          >
+                            Book in-person
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div key={`pharmacy-page-${item.id}`} className="history-card">
+                        <p className="history-headline">{item.partner_name}</p>
+                        <p className="micro">
+                          {item.area_label || "Nearby"} • {item.distance_km} km • {item.eta_minutes} min
+                        </p>
+                        <p className="micro">{item.medicine_price_note}</p>
+                        <p className="micro">
+                          Delivery fee: Rs {item.delivery_fee}
+                          {item.home_delivery_available ? " • Home delivery" : ""}
+                          {item.pickup_available ? " • Pickup" : ""}
+                        </p>
+                        <div className="action-row">
+                          {item.home_delivery_available && (
+                            <button
+                              className="secondary"
+                              type="button"
+                              onClick={() =>
+                                createMarketplaceRequest({
+                                  requestType: "pharmacy",
+                                  partnerId: item.id,
+                                  serviceName: "Prescription fulfilment",
+                                  fulfillmentMode: "home_delivery",
+                                  listedPrice: item.delivery_fee,
+                                  notes: `${item.partner_name} • home delivery`,
+                                })
+                              }
+                            >
+                              Order home delivery
+                            </button>
+                          )}
+                          {item.pickup_available && (
+                            <button
+                              className="primary"
+                              type="button"
+                              onClick={() =>
+                                createMarketplaceRequest({
+                                  requestType: "pharmacy",
+                                  partnerId: item.id,
+                                  serviceName: "Prescription pickup",
+                                  fulfillmentMode: "pickup",
+                                  listedPrice: 0,
+                                  notes: `${item.partner_name} • pickup`,
+                                })
+                              }
+                            >
+                              Reserve pickup
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ),
+                  )}
+                </div>
+                {marketplaceStatus && <p className="micro">{marketplaceStatus}</p>}
+                <h3 style={{ marginTop: 16 }}>Your service requests</h3>
+                <div className="history-list">
+                  {marketplaceRequests.length === 0 ? (
+                    <p className="micro">No lab or pharmacy requests yet.</p>
+                  ) : (
+                    marketplaceRequests.slice(0, 6).map((item) => (
+                      <div key={`marketplace-page-${item.id}`} className="history-card">
+                        <p className="history-headline">
+                          {item.request_type} • {item.status}
+                        </p>
+                        <p className="micro">{item.service_name}</p>
+                        <p className="micro">
+                          {item.fulfillment_mode} • Rs {item.listed_price}
+                        </p>
+                        <p className="micro">{new Date(item.created_at).toLocaleString()}</p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </>
+            )}
+          </section>
+        </main>
+      </div>
+    );
+  };
 
   useEffect(() => {
     setChatMessages((prev) => {
@@ -646,6 +1112,7 @@ function App() {
     if (!user) return t("safetySummary");
     return format(t("safetySummaryAuthed"), { name: user.name });
   }, [user, language]);
+  const isOpsUser = user && (user.role === "admin" || user.role === "front_desk");
 
   const profileCompletion = useMemo(() => {
     const checks = [
@@ -660,15 +1127,34 @@ function App() {
   }, [profileForm]);
 
   const lastGuidance = history.length > 0 ? history[0] : null;
+  const visibleHistory = historyExpanded ? history : history.slice(0, 3);
+  const activeConsult = useMemo(
+    () => teleconsults.find((consult) => consult.id === activeConsultId) || null,
+    [teleconsults, activeConsultId],
+  );
+
+  useEffect(() => {
+    if (!activeConsult) return;
+    setDoctorConsoleForm({
+      status: activeConsult.status || "requested",
+      meetingUrl: activeConsult.meetingUrl || "",
+    });
+  }, [activeConsult]);
 
   const updateAuthField = (key, value) =>
     setAuthForm((prev) => ({ ...prev, [key]: value }));
+  const updateDoctorAuthField = (key, value) =>
+    setDoctorAuthForm((prev) => ({ ...prev, [key]: value }));
 
   const updateTriageField = (key, value) =>
     setTriageForm((prev) => ({ ...prev, [key]: value }));
+  const updateDentalField = (key, value) =>
+    setDentalForm((prev) => ({ ...prev, [key]: value }));
 
   const updateProfileField = (key, value) =>
     setProfileForm((prev) => ({ ...prev, [key]: value }));
+  const updateTeleField = (key, value) =>
+    setTeleForm((prev) => ({ ...prev, [key]: value }));
 
   const apiFetch = async (url, options = {}) => {
     const headers = { ...(options.headers || {}) };
@@ -689,9 +1175,30 @@ function App() {
     });
   };
 
+  const toggleDentalArrayValue = (key, value) => {
+    setDentalForm((prev) => {
+      const current = prev[key];
+      const exists = current.includes(value);
+      return {
+        ...prev,
+        [key]: exists ? current.filter((item) => item !== value) : [...current, value],
+      };
+    });
+  };
+
   const loadProfile = async (userId) => {
     try {
       const response = await apiFetch(`${API_BASE}/api/profile/${userId}`);
+      if (response.status === 404) {
+        setProfileForm({
+          age: "",
+          sex: "Female",
+          conditions: "",
+          allergies: "",
+          region: "",
+        });
+        return;
+      }
       if (!response.ok) return;
       const data = await response.json();
       const profile = data.profile || {};
@@ -763,16 +1270,393 @@ function App() {
     }
   };
 
+  const loadTeleconsults = async () => {
+    if (!authToken) return;
+    setTeleLoading(true);
+    setTeleStatus("");
+    try {
+      const response = await apiFetch(`${API_BASE}/api/teleconsults`);
+      if (!response.ok) {
+        setTeleStatus(t("teleError"));
+        return;
+      }
+      const data = await response.json();
+      const items = data.consults || [];
+      setTeleconsults(items);
+      if (items.length > 0) {
+        setActiveConsultId((prev) => prev || items[0].id);
+      }
+    } catch (error) {
+      setTeleStatus(t("teleError"));
+    } finally {
+      setTeleLoading(false);
+    }
+  };
+
+  const loadConsultMessages = async (consultId) => {
+    if (!consultId || !authToken) return;
+    setConsultMessageStatus("");
+    try {
+      const response = await apiFetch(`${API_BASE}/api/teleconsults/${consultId}/messages`);
+      if (!response.ok) {
+        setConsultMessageStatus(t("teleError"));
+        return;
+      }
+      const data = await response.json();
+      setConsultMessages(data.messages || []);
+    } catch (error) {
+      setConsultMessageStatus(t("teleError"));
+    }
+  };
+
+  const loadAppointments = async () => {
+    if (!authToken) return;
+    setAppointmentsStatus("");
+    try {
+      const response = await apiFetch(`${API_BASE}/api/appointments`);
+      if (!response.ok) {
+        setAppointmentsStatus("Unable to load appointments.");
+        return;
+      }
+      const data = await response.json();
+      setAppointments(data.appointments || []);
+    } catch (error) {
+      setAppointmentsStatus("Unable to load appointments.");
+    }
+  };
+
+  const loadDepartments = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/api/departments`);
+      if (!response.ok) return;
+      const data = await response.json();
+      const items = data.departments || [];
+      setDepartments(items);
+      setAppointmentForm((prev) => {
+        if (prev.departmentId || items.length === 0) {
+          return prev;
+        }
+        return {
+          ...prev,
+          departmentId: String(items[0].id),
+          doctorId: "",
+        };
+      });
+    } catch (error) {
+      // Non-blocking at startup.
+    }
+  };
+
+  const loadDoctorsForDepartment = async (departmentId) => {
+    if (!departmentId) {
+      setDepartmentDoctors([]);
+      return;
+    }
+    try {
+      const response = await fetch(
+        `${API_BASE}/api/doctors?departmentId=${encodeURIComponent(departmentId)}`,
+      );
+      if (!response.ok) {
+        setDepartmentDoctors([]);
+        return;
+      }
+      const data = await response.json();
+      const items = data.doctors || [];
+      setDepartmentDoctors(items);
+      setAppointmentForm((prev) => {
+        if (String(prev.departmentId) !== String(departmentId)) {
+          return prev;
+        }
+        const selectedDoctorStillValid = items.some(
+          (doctor) => String(doctor.id) === String(prev.doctorId),
+        );
+        return {
+          ...prev,
+          doctorId: selectedDoctorStillValid ? prev.doctorId : "",
+        };
+      });
+    } catch (error) {
+      setDepartmentDoctors([]);
+    }
+  };
+
+  const loadAdminUsers = async () => {
+    if (!authToken || user?.role !== "admin") return;
+    setAdminUsersStatus("");
+    try {
+      const response = await apiFetch(`${API_BASE}/api/admin/users`);
+      if (!response.ok) {
+        setAdminUsersStatus("Unable to load admin users.");
+        return;
+      }
+      const data = await response.json();
+      setAdminUsers(
+        (data.users || []).map((item) => ({
+          ...item,
+          roleDraft: item.role || "patient",
+          departmentIdDraft: item.department_id ? String(item.department_id) : "",
+          qualificationDraft: item.qualification || "",
+          activeDraft: item.active ? "active" : "disabled",
+        })),
+      );
+    } catch (error) {
+      setAdminUsersStatus("Unable to load admin users.");
+    }
+  };
+
+  const loadAdminOps = async () => {
+    if (!authToken || !["admin", "front_desk"].includes(user?.role)) return;
+    setAdminOpsStatus("");
+    try {
+      const response = await apiFetch(`${API_BASE}/api/admin/ops/dashboard`);
+      if (!response.ok) {
+        setAdminOpsStatus("Unable to load operations dashboard.");
+        return;
+      }
+      const data = await response.json();
+      setAdminOps(data);
+    } catch (error) {
+      setAdminOpsStatus("Unable to load operations dashboard.");
+    }
+  };
+
+  const loadOpsQueue = async () => {
+    if (!authToken || !["admin", "front_desk"].includes(user?.role)) return;
+    setOpsQueueStatus("");
+    try {
+      const response = await apiFetch(`${API_BASE}/api/ops/queue`);
+      const data = await response.json();
+      if (!response.ok) {
+        setOpsQueueStatus(data.error || "Unable to load front desk queue.");
+        return;
+      }
+      const queue = data.queue || [];
+      setOpsQueue(queue);
+      setBillingDrafts((prev) => {
+        const next = { ...prev };
+        queue.forEach((item) => {
+          if (!next[item.id]) {
+            next[item.id] = {
+              amount: item.bill_amount ?? "",
+              status: item.bill_status || "unpaid",
+              paymentMethod: item.bill_payment_method || "",
+            };
+          }
+        });
+        return next;
+      });
+    } catch (error) {
+      setOpsQueueStatus("Unable to load front desk queue.");
+    }
+  };
+
+  const loadAvailableSlots = async (doctorId, date) => {
+    if (!doctorId || !date) {
+      setAvailableSlots([]);
+      setSlotStatus("");
+      return;
+    }
+    setSlotStatus("");
+    try {
+      const response = await fetch(
+        `${API_BASE}/api/appointment-slots?doctorId=${encodeURIComponent(doctorId)}&date=${encodeURIComponent(date)}`,
+      );
+      const data = await response.json();
+      if (!response.ok) {
+        setAvailableSlots([]);
+        setSlotStatus(data.error || "Unable to load slots.");
+        return;
+      }
+      setAvailableSlots(data.slots || []);
+      if (!data.slots || data.slots.length === 0) {
+        setSlotStatus("No slots available for this date.");
+      }
+    } catch (error) {
+      setAvailableSlots([]);
+      setSlotStatus("Unable to load slots.");
+    }
+  };
+
+  const loadDoctorSchedule = async (doctorId) => {
+    if (!doctorId || !authToken) return;
+    setScheduleStatus("");
+    try {
+      const response = await apiFetch(`${API_BASE}/api/doctors/${doctorId}/availability`);
+      if (!response.ok) {
+        setScheduleStatus("Unable to load schedule.");
+        return;
+      }
+      const data = await response.json();
+      const schedules = data.schedules || [];
+      if (schedules.length > 0) {
+        setScheduleForm(
+          schedules.map((item) => ({
+            weekday: Number(item.weekday),
+            startTime: item.start_time,
+            endTime: item.end_time,
+            slotMinutes: Number(item.slot_minutes),
+          })),
+        );
+      }
+    } catch (error) {
+      setScheduleStatus("Unable to load schedule.");
+    }
+  };
+
+  const loadEncounters = async () => {
+    if (!authToken) return;
+    setEncounterStatus("");
+    try {
+      const response = await apiFetch(`${API_BASE}/api/encounters`);
+      if (!response.ok) {
+        setEncounterStatus("Unable to load clinical records.");
+        return;
+      }
+      const data = await response.json();
+      const items = data.encounters || [];
+      setEncounters(items);
+      if (items.length > 0) {
+        setActiveEncounterId((prev) => prev || items[0].id);
+      }
+    } catch (error) {
+      setEncounterStatus("Unable to load clinical records.");
+    }
+  };
+
+  const loadEncounterDetail = async (encounterId) => {
+    if (!encounterId || !authToken) return;
+    try {
+      const response = await apiFetch(`${API_BASE}/api/encounters/${encounterId}`);
+      if (!response.ok) {
+        setEncounterStatus("Unable to load record detail.");
+        return;
+      }
+      const data = await response.json();
+      setEncounterDetail(data);
+    } catch (error) {
+      setEncounterStatus("Unable to load record detail.");
+    }
+  };
+
+  const loadLabListings = async (mode = labMode) => {
+    try {
+      const response = await fetch(
+        `${API_BASE}/api/marketplace/labs?mode=${encodeURIComponent(mode)}`,
+      );
+      const data = await response.json();
+      if (!response.ok) {
+        setMarketplaceStatus(data.error || "Unable to load labs.");
+        return;
+      }
+      setLabListings(data.labs || []);
+    } catch (error) {
+      setMarketplaceStatus("Unable to load labs.");
+    }
+  };
+
+  const loadPharmacyListings = async (mode = pharmacyMode) => {
+    try {
+      const response = await fetch(
+        `${API_BASE}/api/marketplace/pharmacies?mode=${encodeURIComponent(mode)}`,
+      );
+      const data = await response.json();
+      if (!response.ok) {
+        setMarketplaceStatus(data.error || "Unable to load pharmacies.");
+        return;
+      }
+      setPharmacyListings(data.pharmacies || []);
+    } catch (error) {
+      setMarketplaceStatus("Unable to load pharmacies.");
+    }
+  };
+
+  const loadMarketplaceRequests = async () => {
+    if (!authToken) return;
+    try {
+      const response = await apiFetch(`${API_BASE}/api/marketplace/requests`);
+      const data = await response.json();
+      if (!response.ok) {
+        setMarketplaceStatus(data.error || "Unable to load marketplace requests.");
+        return;
+      }
+      setMarketplaceRequests(data.requests || []);
+    } catch (error) {
+      setMarketplaceStatus("Unable to load marketplace requests.");
+    }
+  };
+
+  useEffect(() => {
+    loadDepartments();
+  }, []);
+
+  useEffect(() => {
+    if (!appointmentForm.departmentId) {
+      setDepartmentDoctors([]);
+      return;
+    }
+    loadDoctorsForDepartment(appointmentForm.departmentId);
+  }, [appointmentForm.departmentId]);
+
+  useEffect(() => {
+    if (!appointmentForm.doctorId || !appointmentForm.appointmentDate) {
+      setAvailableSlots([]);
+      setSlotStatus("");
+      return;
+    }
+    loadAvailableSlots(appointmentForm.doctorId, appointmentForm.appointmentDate);
+  }, [appointmentForm.doctorId, appointmentForm.appointmentDate]);
+
+  useEffect(() => {
+    if (user && (user.role === "doctor" || user.role === "admin")) {
+      loadDoctorSchedule(user.id);
+    }
+  }, [user?.id, user?.role, authToken]);
+
   useEffect(() => {
     if (user?.id) {
       loadProfile(user.id);
       loadHistory(user.id);
       loadFamilyMembers();
       loadShareHistory();
+      loadTeleconsults();
+      loadAppointments();
+      loadEncounters();
+      loadMarketplaceRequests();
+      loadLabListings();
+      loadPharmacyListings();
+      if (user.role === "admin") {
+        loadAdminUsers();
+      } else {
+        setAdminUsers([]);
+      }
+      if (["admin", "front_desk"].includes(user.role)) {
+        loadAdminOps();
+        loadOpsQueue();
+      } else {
+        setAdminOps(null);
+        setOpsQueue([]);
+      }
     } else {
+      setProfileForm({
+        age: "",
+        sex: "Female",
+        conditions: "",
+        allergies: "",
+        region: "",
+      });
       setHistory([]);
       setFamilyMembers([]);
       setRecords([]);
+      setTeleconsults([]);
+      setConsultMessages([]);
+      setActiveConsultId(null);
+      setAppointments([]);
+      setEncounters([]);
+      setEncounterDetail(null);
+      setActiveEncounterId(null);
+      setAdminUsers([]);
+      setAdminOps(null);
+      setOpsQueue([]);
     }
   }, [user, authToken]);
 
@@ -805,6 +1689,60 @@ function App() {
     loadRecords(activeMemberId);
   }, [activeMemberId]);
 
+  useEffect(() => {
+    if (!activeConsultId) {
+      setConsultMessages([]);
+      return;
+    }
+    loadConsultMessages(activeConsultId);
+  }, [activeConsultId, authToken]);
+
+  useEffect(() => {
+    if (!activeEncounterId) {
+      setEncounterDetail(null);
+      return;
+    }
+    loadEncounterDetail(activeEncounterId);
+  }, [activeEncounterId, authToken]);
+
+  useEffect(() => {
+    if (!user || isOpsUser || !authToken) return;
+
+    const refreshMarketplace = () => {
+      loadMarketplaceRequests();
+    };
+
+    const handleStorage = (event) => {
+      if (event.key === MARKETPLACE_REFRESH_KEY) {
+        refreshMarketplace();
+      }
+    };
+
+    window.addEventListener("focus", refreshMarketplace);
+    window.addEventListener("storage", handleStorage);
+
+    return () => {
+      window.removeEventListener("focus", refreshMarketplace);
+      window.removeEventListener("storage", handleStorage);
+    };
+  }, [user?.id, user?.role, authToken]);
+
+  useEffect(() => {
+    if (!user || isOpsUser) return;
+    loadLabListings(labMode);
+  }, [labMode]);
+
+  useEffect(() => {
+    if (!user || isOpsUser) return;
+    loadPharmacyListings(pharmacyMode);
+  }, [pharmacyMode]);
+
+  useEffect(() => {
+    if (doctorConsoleMode) {
+      setAuthMode("login");
+    }
+  }, [doctorConsoleMode]);
+
   const handleAuth = async (event) => {
     event.preventDefault();
     setAuthError("");
@@ -834,6 +1772,298 @@ function App() {
       setAuthForm({ name: "", email: "", password: "" });
     } catch (error) {
       setAuthError("Network error. Check backend connection.");
+    }
+  };
+
+  const handleDoctorAuth = async (event) => {
+    event.preventDefault();
+    setDoctorAuthError("");
+
+    try {
+      const endpoint =
+        doctorAuthMode === "signup" ? "/api/auth/register" : "/api/auth/login";
+
+      const response = await fetch(`${API_BASE}${endpoint}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(doctorAuthForm),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        setDoctorAuthError(data.error || "Unable to authenticate.");
+        return;
+      }
+
+      if (doctorAuthMode === "signup") {
+        setDoctorAuthForm({ name: "", email: "", password: "" });
+        setDoctorAuthMode("login");
+        setDoctorAuthError(t("doctorSignupInfo"));
+        return;
+      }
+
+      if (!data.user || (data.user.role !== "doctor" && data.user.role !== "admin")) {
+        setDoctorAuthError(t("doctorNoAccess"));
+        return;
+      }
+
+      setUser(data.user);
+      if (data.token) {
+        setAuthToken(data.token);
+        localStorage.setItem("health_token", data.token);
+      }
+      localStorage.setItem("health_user", JSON.stringify(data.user));
+      setDoctorAuthForm({ name: "", email: "", password: "" });
+      window.location.href = "/doctor-dashboard";
+    } catch (error) {
+      setDoctorAuthError("Network error. Check backend connection.");
+    }
+  };
+
+  const requestPasswordReset = async () => {
+    setResetStatus("");
+    setResetTokenPreview("");
+    if (!resetForm.email) {
+      setResetStatus("Enter your email first.");
+      return;
+    }
+    try {
+      const response = await fetch(`${API_BASE}/api/auth/forgot-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: resetForm.email }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setResetStatus(data.error || "Unable to issue reset token.");
+        return;
+      }
+      if (data.resetToken) {
+        setResetTokenPreview(data.resetToken);
+        setResetForm((prev) => ({ ...prev, token: data.resetToken }));
+        setResetStatus("Reset token generated. Use it below to set a new password.");
+      } else {
+        setResetStatus(data.message || "If the account exists, a reset token has been issued.");
+      }
+    } catch (error) {
+      setResetStatus("Unable to issue reset token.");
+    }
+  };
+
+  const confirmPasswordReset = async () => {
+    setResetStatus("");
+    if (!resetForm.email || !resetForm.token || !resetForm.newPassword) {
+      setResetStatus("Email, reset token, and new password are required.");
+      return;
+    }
+    try {
+      const response = await fetch(`${API_BASE}/api/auth/reset-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: resetForm.email,
+          token: resetForm.token,
+          newPassword: resetForm.newPassword,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setResetStatus(data.error || "Unable to reset password.");
+        return;
+      }
+      setResetStatus(data.message || "Password updated successfully.");
+      setResetTokenPreview("");
+      setResetForm((prev) => ({ ...prev, token: "", newPassword: "" }));
+    } catch (error) {
+      setResetStatus("Unable to reset password.");
+    }
+  };
+
+  const updateAdminUserDraft = (userId, key, value) => {
+    setAdminUsers((prev) =>
+      prev.map((item) => (item.id === userId ? { ...item, [key]: value } : item)),
+    );
+  };
+
+  const saveAdminUser = async (adminUser) => {
+    setAdminUsersStatus("");
+    setAdminSavingUserId(adminUser.id);
+    try {
+      const response = await apiFetch(`${API_BASE}/api/admin/users/${adminUser.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          role: adminUser.roleDraft,
+          active: adminUser.activeDraft === "active",
+          departmentId:
+            adminUser.roleDraft === "doctor" || adminUser.roleDraft === "admin"
+              ? adminUser.departmentIdDraft || null
+              : null,
+          qualification:
+            adminUser.roleDraft === "doctor" || adminUser.roleDraft === "admin"
+              ? adminUser.qualificationDraft
+              : "",
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setAdminUsersStatus(data.error || "Unable to save user.");
+        return;
+      }
+      setAdminUsersStatus(`Updated ${data.user?.name || adminUser.name}.`);
+      await loadAdminUsers();
+      if (user?.id === adminUser.id) {
+        const meResponse = await apiFetch(`${API_BASE}/api/auth/me`);
+        if (meResponse.ok) {
+          const meData = await meResponse.json();
+          if (meData.user) {
+            setUser(meData.user);
+            localStorage.setItem("health_user", JSON.stringify(meData.user));
+          }
+        }
+      }
+    } catch (error) {
+      setAdminUsersStatus("Unable to save user.");
+    } finally {
+      setAdminSavingUserId(null);
+    }
+  };
+
+  const updateBillingDraft = (appointmentId, key, value) => {
+    setBillingDrafts((prev) => ({
+      ...prev,
+      [appointmentId]: {
+        ...(prev[appointmentId] || { amount: "", status: "unpaid", paymentMethod: "" }),
+        [key]: value,
+      },
+    }));
+  };
+
+  const updateAppointmentStatus = async (appointmentId, status) => {
+    setOpsQueueStatus("");
+    try {
+      const response = await apiFetch(`${API_BASE}/api/appointments/${appointmentId}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setOpsQueueStatus(data.error || "Unable to update appointment.");
+        return;
+      }
+      setOpsQueueStatus(`Appointment #${appointmentId} updated to ${status}.`);
+      await loadOpsQueue();
+      await loadAdminOps();
+      await loadAppointments();
+    } catch (error) {
+      setOpsQueueStatus("Unable to update appointment.");
+    }
+  };
+
+  const saveBillingForAppointment = async (appointmentId) => {
+    const draft = billingDrafts[appointmentId] || {};
+    setOpsQueueStatus("");
+    try {
+      const response = await apiFetch(`${API_BASE}/api/appointments/${appointmentId}/billing`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: draft.amount === "" ? 0 : Number(draft.amount),
+          status: draft.status || "unpaid",
+          paymentMethod: draft.paymentMethod || "",
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setOpsQueueStatus(data.error || "Unable to save billing.");
+        return;
+      }
+      setOpsQueueStatus(`Billing saved for appointment #${appointmentId}.`);
+      await loadOpsQueue();
+      await loadAdminOps();
+      await loadAppointments();
+    } catch (error) {
+      setOpsQueueStatus("Unable to save billing.");
+    }
+  };
+
+  const viewReceipt = async (appointmentId) => {
+    setOpsQueueStatus("");
+    try {
+      const response = await apiFetch(`${API_BASE}/api/appointments/${appointmentId}/receipt`);
+      const data = await response.json();
+      if (!response.ok) {
+        setOpsQueueStatus(data.error || "Unable to load receipt.");
+        return;
+      }
+      const receipt = data.receipt;
+      window.alert(
+        [
+          `Receipt for appointment #${receipt.appointmentId}`,
+          `Patient: ${receipt.patientName}`,
+          `Department: ${receipt.department || "-"}`,
+          `Doctor: ${receipt.doctorName || "-"}`,
+          `Amount: Rs ${receipt.amount || 0}`,
+          `Billing: ${receipt.billingStatus}`,
+          `Payment method: ${receipt.paymentMethod || "-"}`,
+          `Appointment: ${new Date(receipt.scheduledAt).toLocaleString()}`,
+        ].join("\n"),
+      );
+    } catch (error) {
+      setOpsQueueStatus("Unable to load receipt.");
+    }
+  };
+
+  const updateScheduleRow = (index, key, value) => {
+    setScheduleForm((prev) =>
+      prev.map((item, itemIndex) =>
+        itemIndex === index ? { ...item, [key]: key === "weekday" || key === "slotMinutes" ? Number(value) : value } : item,
+      ),
+    );
+  };
+
+  const addScheduleRow = () => {
+    setScheduleForm((prev) => [
+      ...prev,
+      { weekday: 1, startTime: "10:00", endTime: "13:00", slotMinutes: 20 },
+    ]);
+  };
+
+  const removeScheduleRow = (index) => {
+    setScheduleForm((prev) => prev.filter((_, itemIndex) => itemIndex !== index));
+  };
+
+  const saveDoctorSchedule = async () => {
+    if (!user || !(user.role === "doctor" || user.role === "admin")) {
+      setScheduleStatus("Doctor or admin access required.");
+      return;
+    }
+    setScheduleStatus("");
+    try {
+      const response = await apiFetch(`${API_BASE}/api/doctors/${user.id}/availability`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ schedules: scheduleForm }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setScheduleStatus(data.error || "Unable to save schedule.");
+        return;
+      }
+      setScheduleStatus("Doctor availability saved.");
+      if (data.schedules) {
+        setScheduleForm(
+          data.schedules.map((item) => ({
+            weekday: Number(item.weekday),
+            startTime: item.start_time,
+            endTime: item.end_time,
+            slotMinutes: Number(item.slot_minutes),
+          })),
+        );
+      }
+    } catch (error) {
+      setScheduleStatus("Unable to save schedule.");
     }
   };
 
@@ -895,6 +2125,14 @@ function App() {
     updateTriageField("photoPreview", preview);
   };
 
+  const removeTriagePhoto = () => {
+    if (triageForm.photoPreview) {
+      URL.revokeObjectURL(triageForm.photoPreview);
+    }
+    updateTriageField("photoFile", null);
+    updateTriageField("photoPreview", "");
+  };
+
   const submitTriage = async (event) => {
     event.preventDefault();
     setTriageError("");
@@ -908,23 +2146,40 @@ function App() {
     }
     setTriageLoading(true);
 
-    const payload = {
-      ...triageForm,
-      memberId: activeMemberId || null,
-      symptoms: [
-        ...triageForm.symptoms,
-        ...triageForm.additionalSymptoms
-          .split(",")
-          .map((symptom) => symptom.trim())
-          .filter(Boolean),
-      ],
-      userId: user?.id,
-    };
+    const payload =
+      triageType === "dental"
+        ? {
+            triageType: "dental",
+            age: triageForm.age,
+            sex: triageForm.sex,
+            durationDays: Number(dentalForm.durationDays),
+            memberId: activeMemberId || null,
+            userId: user?.id,
+            dentalPainScale: Number(dentalForm.painScale),
+            dentalSymptoms: dentalForm.symptoms,
+            dentalRedFlags: dentalForm.redFlags,
+            dentalHotColdTrigger: dentalForm.hotColdTrigger,
+            dentalSwelling: dentalForm.swelling,
+          }
+        : {
+            triageType: "general",
+            ...triageForm,
+            memberId: activeMemberId || null,
+            symptoms: [
+              ...triageForm.symptoms,
+              ...triageForm.additionalSymptoms
+                .split(",")
+                .map((symptom) => symptom.trim())
+                .filter(Boolean),
+            ],
+            userId: user?.id,
+          };
 
     try {
       let response;
       if (triageForm.photoFile) {
         const form = new FormData();
+        form.append("triageType", payload.triageType || "general");
         form.append("age", payload.age || "");
         form.append("sex", payload.sex || "");
         form.append("durationDays", payload.durationDays || "");
@@ -932,6 +2187,14 @@ function App() {
         form.append("symptoms", JSON.stringify(payload.symptoms || []));
         form.append("redFlags", JSON.stringify(payload.redFlags || []));
         form.append("additionalSymptoms", payload.additionalSymptoms || "");
+        form.append("dentalPainScale", String(payload.dentalPainScale || ""));
+        form.append("dentalSymptoms", JSON.stringify(payload.dentalSymptoms || []));
+        form.append("dentalRedFlags", JSON.stringify(payload.dentalRedFlags || []));
+        form.append("dentalHotColdTrigger", String(!!payload.dentalHotColdTrigger));
+        form.append("dentalSwelling", String(!!payload.dentalSwelling));
+        if (payload.memberId) {
+          form.append("memberId", String(payload.memberId));
+        }
         if (payload.userId) {
           form.append("userId", String(payload.userId));
         }
@@ -999,6 +2262,13 @@ function App() {
     if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
+  const openRecordUploader = () => {
+    scrollToSection("records");
+    window.setTimeout(() => {
+      recordsInputRef.current?.click();
+    }, 250);
+  };
+
   const generateSharePass = async () => {
     if (!user?.id) return;
     setSharePassStatus(t("passGenerating"));
@@ -1023,6 +2293,302 @@ function App() {
       await loadShareHistory();
     } catch (error) {
       setSharePassStatus(t("passFailed"));
+    }
+  };
+
+  const createTeleconsult = async (event, overrideMode = null) => {
+    event?.preventDefault?.();
+    setTeleStatus("");
+    if (!user || !authToken) {
+      setTeleStatus(t("teleError"));
+      return;
+    }
+    if (!teleForm.concern.trim() || teleForm.concern.trim().length < 10) {
+      setTeleStatus("Please enter at least 10 characters in concern.");
+      return;
+    }
+
+    try {
+      const payload = {
+        memberId: activeMemberId || null,
+        mode: overrideMode || teleForm.mode,
+        concern: teleForm.concern.trim(),
+        preferredSlot: teleForm.preferredSlot
+          ? new Date(teleForm.preferredSlot).toISOString()
+          : "",
+        phone: teleForm.phone.trim(),
+        triageLogId: lastGuidance?.id || null,
+      };
+      const response = await apiFetch(`${API_BASE}/api/teleconsults`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || t("teleError"));
+      setTeleForm({
+        mode: "video",
+        concern: "",
+        preferredSlot: "",
+        phone: teleForm.phone,
+      });
+      setTeleStatus(t("teleBooked"));
+      await loadTeleconsults();
+      if (data.consult?.id) {
+        setActiveConsultId(data.consult.id);
+      }
+    } catch (error) {
+      setTeleStatus(error.message || t("teleError"));
+    }
+  };
+
+  const createAppointment = async (event) => {
+    event?.preventDefault?.();
+    setAppointmentsStatus("");
+    if (
+      !appointmentForm.departmentId ||
+      !appointmentForm.doctorId ||
+      !appointmentForm.reason.trim() ||
+      !appointmentForm.appointmentDate ||
+      !appointmentForm.slotTime
+    ) {
+      setAppointmentsStatus("Department, doctor, reason, date, and slot are required.");
+      return;
+    }
+    try {
+      const scheduledAt = new Date(
+        `${appointmentForm.appointmentDate}T${appointmentForm.slotTime}:00`,
+      ).toISOString();
+      const response = await apiFetch(`${API_BASE}/api/appointments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          memberId: activeMemberId || null,
+          departmentId: Number(appointmentForm.departmentId),
+          doctorId: Number(appointmentForm.doctorId),
+          reason: appointmentForm.reason.trim(),
+          scheduledAt,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Unable to book appointment.");
+      setAppointmentForm((prev) => ({
+        ...prev,
+        doctorId: "",
+        reason: "",
+        appointmentDate: "",
+        slotTime: "",
+      }));
+      setAvailableSlots([]);
+      setAppointmentsStatus("Appointment booked.");
+      await loadAppointments();
+      await loadDoctorsForDepartment(appointmentForm.departmentId);
+    } catch (error) {
+      setAppointmentsStatus(error.message || "Unable to book appointment.");
+    }
+  };
+
+  const submitCareRequest = async (event) => {
+    event.preventDefault();
+    if (careRequestMode === "in_person") {
+      await createAppointment();
+      return;
+    }
+    await createTeleconsult(null, careRequestMode);
+  };
+
+  const createMarketplaceRequest = async (payload) => {
+    setMarketplaceStatus("");
+    try {
+      const response = await apiFetch(`${API_BASE}/api/marketplace/requests`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...payload,
+          memberId: activeMemberId || null,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setMarketplaceStatus(data.error || "Unable to place request.");
+        return;
+      }
+      setMarketplaceStatus("Request placed successfully.");
+      localStorage.setItem(MARKETPLACE_REFRESH_KEY, String(Date.now()));
+      await loadMarketplaceRequests();
+    } catch (error) {
+      setMarketplaceStatus("Unable to place request.");
+    }
+  };
+
+  const createEncounterFromDoctor = async (event) => {
+    event.preventDefault();
+    setDoctorChartStatus("");
+    if (!doctorChartForm.appointmentId) {
+      setDoctorChartStatus("Select an appointment to create encounter.");
+      return;
+    }
+    try {
+      const response = await apiFetch(`${API_BASE}/api/encounters`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          appointmentId: Number(doctorChartForm.appointmentId),
+          chiefComplaint: doctorChartForm.chiefComplaint,
+          findings: doctorChartForm.findings,
+          diagnosisCode: "",
+          diagnosisText: doctorChartForm.diagnosis,
+          planText: doctorChartForm.planText,
+          followupDate: doctorChartForm.followupDate || null,
+          vitals: doctorChartForm.vitals,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Unable to create encounter.");
+      setDoctorChartStatus("Encounter created.");
+      setDoctorChartForm((prev) => ({
+        ...prev,
+        chiefComplaint: "",
+        findings: "",
+        diagnosis: "",
+        planText: "",
+        followupDate: "",
+        vitals: "",
+      }));
+      setActiveEncounterId(data.encounterId);
+      await loadEncounters();
+    } catch (error) {
+      setDoctorChartStatus(error.message || "Unable to create encounter.");
+    }
+  };
+
+  const addDoctorNote = async (event) => {
+    event.preventDefault();
+    if (!activeEncounterId) return;
+    setDoctorChartStatus("");
+    try {
+      const response = await apiFetch(`${API_BASE}/api/encounters/${activeEncounterId}/notes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          note: noteForm.note,
+          signature: noteForm.signature,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Unable to add note.");
+      setNoteForm({ note: "", signature: "" });
+      setDoctorChartStatus(`Signed note added (${data.noteHash.slice(0, 10)}...)`);
+      await loadEncounterDetail(activeEncounterId);
+      await loadEncounters();
+    } catch (error) {
+      setDoctorChartStatus(error.message || "Unable to add note.");
+    }
+  };
+
+  const addPrescription = async (event) => {
+    event.preventDefault();
+    if (!activeEncounterId) return;
+    setDoctorChartStatus("");
+    try {
+      const items = prescriptionForm.itemsText
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line) => {
+          const [medicine, dose = "", frequency = "", duration = ""] = line
+            .split("|")
+            .map((s) => s.trim());
+          return { medicine, dose, frequency, duration };
+        });
+      const response = await apiFetch(
+        `${API_BASE}/api/encounters/${activeEncounterId}/prescriptions`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            instructions: prescriptionForm.instructions,
+            items,
+          }),
+        },
+      );
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Unable to add prescription.");
+      setPrescriptionForm({ instructions: "", itemsText: "" });
+      setDoctorChartStatus(`Prescription created (#${data.prescriptionId}).`);
+      await loadEncounterDetail(activeEncounterId);
+      await loadEncounters();
+    } catch (error) {
+      setDoctorChartStatus(error.message || "Unable to add prescription.");
+    }
+  };
+
+  const addOrder = async (event) => {
+    event.preventDefault();
+    if (!activeEncounterId) return;
+    setDoctorChartStatus("");
+    try {
+      const response = await apiFetch(`${API_BASE}/api/encounters/${activeEncounterId}/orders`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderType: orderForm.orderType,
+          itemName: orderForm.itemName,
+          destination: orderForm.destination,
+          notes: orderForm.notes,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Unable to add order.");
+      setOrderForm({ orderType: "lab", itemName: "", destination: "", notes: "" });
+      setDoctorChartStatus(`Order created (#${data.orderId}).`);
+      await loadEncounterDetail(activeEncounterId);
+      await loadEncounters();
+    } catch (error) {
+      setDoctorChartStatus(error.message || "Unable to add order.");
+    }
+  };
+
+  const sendConsultMessage = async (event) => {
+    event.preventDefault();
+    setConsultMessageStatus("");
+    const message = consultMessageText.trim();
+    if (!activeConsultId || !message) return;
+    try {
+      const response = await apiFetch(`${API_BASE}/api/teleconsults/${activeConsultId}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || t("teleError"));
+      setConsultMessages((prev) => [...prev, data.message]);
+      setConsultMessageText("");
+      await loadTeleconsults();
+    } catch (error) {
+      setConsultMessageStatus(error.message || t("teleError"));
+    }
+  };
+
+  const updateConsultStatus = async (event) => {
+    event.preventDefault();
+    setDoctorConsoleStatus("");
+    if (!activeConsultId) return;
+    try {
+      const response = await apiFetch(`${API_BASE}/api/teleconsults/${activeConsultId}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: doctorConsoleForm.status,
+          meetingUrl: doctorConsoleForm.meetingUrl.trim() || null,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || t("teleError"));
+      setDoctorConsoleStatus(t("doctorConsoleSaved"));
+      await loadTeleconsults();
+    } catch (error) {
+      setDoctorConsoleStatus(error.message || t("teleError"));
     }
   };
 
@@ -1096,6 +2662,21 @@ function App() {
     }
   };
 
+  const deleteRecord = async (recordId) => {
+    if (!recordId) return;
+    try {
+      const response = await apiFetch(`${API_BASE}/api/records/${recordId}`, {
+        method: "DELETE",
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "delete failed");
+      setRecordStatus("Record deleted.");
+      await loadRecords(activeMemberId);
+    } catch (error) {
+      setRecordStatus(error.message || "Unable to delete record.");
+    }
+  };
+
   const generateEmergencyCard = async () => {
     try {
       const response = await apiFetch(`${API_BASE}/api/emergency-card`, {
@@ -1113,8 +2694,6 @@ function App() {
       setFamilyStatus(error.message || "Unable to generate emergency card.");
     }
   };
-
-  const printHealthCard = () => window.print();
 
   const downloadVisitPdf = () => {
     if (!triageResult) return;
@@ -1359,6 +2938,469 @@ function App() {
     };
   }, [emergencyPublicId]);
 
+  if (doctorConsoleMode) {
+    const hasDoctorAccess = user && (user.role === "doctor" || user.role === "admin");
+    return (
+      <div className="app">
+        <main className="doctor-view">
+          <section className="panel">
+            <h1>{t("doctorConsoleTitle")}</h1>
+            <p className="panel-sub">{t("doctorConsoleSubtitle")}</p>
+            {!sessionReady || (authToken && !user) ? (
+              <p className="micro">Loading dashboard...</p>
+            ) : !user ? (
+              <>
+                <p className="micro">{t("doctorConsoleSignIn")}</p>
+                <form className="auth" onSubmit={handleAuth}>
+                  <label className="block">
+                    {t("email")}
+                    <input
+                      type="email"
+                      required
+                      value={authForm.email}
+                      onChange={(event) => updateAuthField("email", event.target.value)}
+                    />
+                  </label>
+                  <label className="block">
+                    {t("password")}
+                    <input
+                      type="password"
+                      required
+                      value={authForm.password}
+                      onChange={(event) => updateAuthField("password", event.target.value)}
+                    />
+                  </label>
+                  {authError && <p className="error">{authError}</p>}
+                  <button className="primary" type="submit">
+                    {t("signIn")}
+                  </button>
+                </form>
+              </>
+            ) : !hasDoctorAccess ? (
+              <>
+                <p className="error">{t("doctorConsoleNoAccess")}</p>
+                <button className="secondary" type="button" onClick={signOut}>
+                  {t("navSignOut")}
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="action-row">
+                  <button
+                    className="secondary"
+                    type="button"
+                    onClick={async () => {
+                      await loadTeleconsults();
+                      await loadAppointments();
+                      await loadEncounters();
+                      await loadDoctorSchedule(user.id);
+                    }}
+                  >
+                    Refresh
+                  </button>
+                  <button className="ghost" type="button" onClick={signOut}>
+                    {t("navSignOut")}
+                  </button>
+                </div>
+                <div className="pass-card" style={{ marginBottom: 16 }}>
+                  <h3>Doctor availability</h3>
+                  <p className="micro">Define OPD timings and slot length used for appointment booking.</p>
+                  {scheduleForm.map((slot, index) => (
+                    <div className="form-row" key={`schedule-${index}`}>
+                      <label>
+                        Day
+                        <select
+                          value={slot.weekday}
+                          onChange={(event) =>
+                            updateScheduleRow(index, "weekday", event.target.value)
+                          }
+                        >
+                          {[1, 2, 3, 4, 5, 6, 0].map((day) => (
+                            <option key={day} value={day}>
+                              {weekdayLabel(day)}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label>
+                        Start
+                        <input
+                          type="time"
+                          value={slot.startTime}
+                          onChange={(event) =>
+                            updateScheduleRow(index, "startTime", event.target.value)
+                          }
+                        />
+                      </label>
+                      <label>
+                        End
+                        <input
+                          type="time"
+                          value={slot.endTime}
+                          onChange={(event) =>
+                            updateScheduleRow(index, "endTime", event.target.value)
+                          }
+                        />
+                      </label>
+                      <label>
+                        Slot (min)
+                        <input
+                          type="number"
+                          min="5"
+                          max="120"
+                          value={slot.slotMinutes}
+                          onChange={(event) =>
+                            updateScheduleRow(index, "slotMinutes", event.target.value)
+                          }
+                        />
+                      </label>
+                      <button className="ghost" type="button" onClick={() => removeScheduleRow(index)}>
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                  <div className="action-row">
+                    <button className="secondary" type="button" onClick={addScheduleRow}>
+                      Add day
+                    </button>
+                    <button className="primary" type="button" onClick={saveDoctorSchedule}>
+                      Save schedule
+                    </button>
+                  </div>
+                  {scheduleStatus && <p className="micro">{scheduleStatus}</p>}
+                </div>
+                {teleLoading ? (
+                  <p className="micro">{t("teleLoading")}</p>
+                ) : teleconsults.length === 0 ? (
+                  <p className="micro">{t("teleEmpty")}</p>
+                ) : (
+                  <>
+                    <div className="member-list">
+                      {teleconsults.map((consult) => (
+                        <button
+                          key={consult.id}
+                          type="button"
+                          className={consult.id === activeConsultId ? "chip active" : "chip"}
+                          onClick={() => setActiveConsultId(consult.id)}
+                        >
+                          #{consult.id} • {consult.patientName || "Patient"} •{" "}
+                          {teleStatusLabel(consult.status)}
+                        </button>
+                      ))}
+                    </div>
+                    {activeConsult && (
+                      <div className="pass-card consult-card">
+                        <h3>
+                          {activeConsult.patientName || "-"}{" "}
+                          {activeConsult.memberName ? `(${activeConsult.memberName})` : ""}
+                        </h3>
+                        <p className="micro">
+                          {activeConsult.patientEmail || "-"} • {activeConsult.phone || "No phone"}
+                        </p>
+                        <p className="micro">{activeConsult.concern}</p>
+                        <p className="micro">
+                          Requested: {new Date(activeConsult.createdAt).toLocaleString()}
+                        </p>
+                        <form className="form" onSubmit={updateConsultStatus}>
+                          <div className="form-row">
+                            <label>
+                              {t("teleStatus")}
+                              <select
+                                value={doctorConsoleForm.status}
+                                onChange={(event) =>
+                                  setDoctorConsoleForm((prev) => ({
+                                    ...prev,
+                                    status: event.target.value,
+                                  }))
+                                }
+                              >
+                                <option value="requested">{t("teleStatusRequested")}</option>
+                                <option value="scheduled">{t("teleStatusScheduled")}</option>
+                                <option value="in_progress">{t("teleStatusInProgress")}</option>
+                                <option value="completed">{t("teleStatusCompleted")}</option>
+                                <option value="cancelled">{t("teleStatusCancelled")}</option>
+                              </select>
+                            </label>
+                            <label>
+                              {t("doctorConsoleMeetingUrl")}
+                              <input
+                                type="url"
+                                value={doctorConsoleForm.meetingUrl}
+                                placeholder="https://meet.google.com/..."
+                                onChange={(event) =>
+                                  setDoctorConsoleForm((prev) => ({
+                                    ...prev,
+                                    meetingUrl: event.target.value,
+                                  }))
+                                }
+                              />
+                            </label>
+                          </div>
+                          <button className="primary" type="submit">
+                            {t("doctorConsoleSave")}
+                          </button>
+                        </form>
+                        {doctorConsoleStatus && <p className="micro">{doctorConsoleStatus}</p>}
+                        <div className="consult-thread">
+                          {consultMessages.map((msg) => (
+                            <div
+                              key={msg.id}
+                              className={`chat-msg ${msg.senderRole === "doctor" ? "bot" : "user"}`}
+                            >
+                              <p className="micro">{new Date(msg.createdAt).toLocaleString()}</p>
+                              <p>{msg.message}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+                <hr />
+                <h2>{t("doctorChartTitle")}</h2>
+                <form className="form" onSubmit={createEncounterFromDoctor}>
+                  <div className="form-row">
+                    <label>
+                      Appointment
+                      <select
+                        value={doctorChartForm.appointmentId}
+                        onChange={(event) =>
+                          setDoctorChartForm((prev) => ({
+                            ...prev,
+                            appointmentId: event.target.value,
+                          }))
+                        }
+                      >
+                        <option value="">Select appointment</option>
+                        {appointments.map((appointment) => (
+                          <option key={appointment.id} value={appointment.id}>
+                            #{appointment.id} • {appointment.patient_name || appointment.patientName || "Patient"} •{" "}
+                            {appointment.department_name || appointment.department || "Department"} •{" "}
+                            {new Date(appointment.scheduled_at).toLocaleString()}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                  <label className="block">
+                    {t("chiefComplaint")}
+                    <textarea
+                      rows={2}
+                      value={doctorChartForm.chiefComplaint}
+                      onChange={(event) =>
+                        setDoctorChartForm((prev) => ({
+                          ...prev,
+                          chiefComplaint: event.target.value,
+                        }))
+                      }
+                    />
+                  </label>
+                  <label className="block">
+                    {t("findings")}
+                    <textarea
+                      rows={2}
+                      value={doctorChartForm.findings}
+                      onChange={(event) =>
+                        setDoctorChartForm((prev) => ({
+                          ...prev,
+                          findings: event.target.value,
+                        }))
+                      }
+                    />
+                  </label>
+                  <div className="form-row">
+                    <label className="block">
+                      {t("diagnosisText")}
+                      <input
+                        type="text"
+                        value={doctorChartForm.diagnosis}
+                        onChange={(event) =>
+                          setDoctorChartForm((prev) => ({
+                            ...prev,
+                            diagnosis: event.target.value,
+                          }))
+                        }
+                      />
+                    </label>
+                  </div>
+                  <label className="block">
+                    {t("encounterVitals")}
+                    <textarea
+                      rows={2}
+                      placeholder="BP: 152/70, Pulse: 84, Temp: 99F"
+                      value={doctorChartForm.vitals}
+                      onChange={(event) =>
+                        setDoctorChartForm((prev) => ({ ...prev, vitals: event.target.value }))
+                      }
+                    />
+                  </label>
+                  <label className="block">
+                    {t("planText")}
+                    <textarea
+                      rows={2}
+                      value={doctorChartForm.planText}
+                      onChange={(event) =>
+                        setDoctorChartForm((prev) => ({ ...prev, planText: event.target.value }))
+                      }
+                    />
+                  </label>
+                  <label>
+                    {t("followupDate")}
+                    <input
+                      type="date"
+                      value={doctorChartForm.followupDate}
+                      onChange={(event) =>
+                        setDoctorChartForm((prev) => ({
+                          ...prev,
+                          followupDate: event.target.value,
+                        }))
+                      }
+                    />
+                  </label>
+                  <button className="primary" type="submit">
+                    {t("doctorChartCreate")}
+                  </button>
+                </form>
+                <div className="member-list">
+                  {encounters.map((encounter) => (
+                    <button
+                      key={encounter.id}
+                      type="button"
+                      className={encounter.id === activeEncounterId ? "chip active" : "chip"}
+                      onClick={() => setActiveEncounterId(encounter.id)}
+                    >
+                      #{encounter.id} • {encounter.patient_name || "-"} • {encounter.status}
+                    </button>
+                  ))}
+                </div>
+                {activeEncounterId && (
+                  <>
+                    <form className="form" onSubmit={addDoctorNote}>
+                      <label className="block">
+                        {t("noteText")}
+                        <textarea
+                          rows={2}
+                          value={noteForm.note}
+                          onChange={(event) =>
+                            setNoteForm((prev) => ({ ...prev, note: event.target.value }))
+                          }
+                        />
+                      </label>
+                      <label>
+                        {t("signature")}
+                        <input
+                          type="text"
+                          value={noteForm.signature}
+                          onChange={(event) =>
+                            setNoteForm((prev) => ({ ...prev, signature: event.target.value }))
+                          }
+                        />
+                      </label>
+                      <button className="secondary" type="submit">
+                        {t("addNote")}
+                      </button>
+                    </form>
+                    <form className="form" onSubmit={addPrescription}>
+                      <label className="block">
+                        Instructions
+                        <textarea
+                          rows={2}
+                          value={prescriptionForm.instructions}
+                          onChange={(event) =>
+                            setPrescriptionForm((prev) => ({
+                              ...prev,
+                              instructions: event.target.value,
+                            }))
+                          }
+                        />
+                      </label>
+                      <label className="block">
+                        {t("medicines")} (one per line: medicine|dose|frequency|duration)
+                        <textarea
+                          rows={3}
+                          value={prescriptionForm.itemsText}
+                          onChange={(event) =>
+                            setPrescriptionForm((prev) => ({
+                              ...prev,
+                              itemsText: event.target.value,
+                            }))
+                          }
+                        />
+                      </label>
+                      <button className="secondary" type="submit">
+                        {t("addPrescription")}
+                      </button>
+                    </form>
+                    <form className="form" onSubmit={addOrder}>
+                      <div className="form-row">
+                        <label>
+                          {t("orderType")}
+                          <select
+                            value={orderForm.orderType}
+                            onChange={(event) =>
+                              setOrderForm((prev) => ({
+                                ...prev,
+                                orderType: event.target.value,
+                              }))
+                            }
+                          >
+                            <option value="lab">lab</option>
+                            <option value="radiology">radiology</option>
+                            <option value="pharmacy">pharmacy</option>
+                            <option value="procedure">procedure</option>
+                          </select>
+                        </label>
+                        <label>
+                          {t("orderItem")}
+                          <input
+                            type="text"
+                            value={orderForm.itemName}
+                            onChange={(event) =>
+                              setOrderForm((prev) => ({ ...prev, itemName: event.target.value }))
+                            }
+                          />
+                        </label>
+                      </div>
+                      <div className="form-row">
+                        <label>
+                          {t("destination")}
+                          <input
+                            type="text"
+                            value={orderForm.destination}
+                            onChange={(event) =>
+                              setOrderForm((prev) => ({
+                                ...prev,
+                                destination: event.target.value,
+                              }))
+                            }
+                          />
+                        </label>
+                        <label>
+                          Notes
+                          <input
+                            type="text"
+                            value={orderForm.notes}
+                            onChange={(event) =>
+                              setOrderForm((prev) => ({ ...prev, notes: event.target.value }))
+                            }
+                          />
+                        </label>
+                      </div>
+                      <button className="secondary" type="submit">
+                        {t("addOrder")}
+                      </button>
+                    </form>
+                  </>
+                )}
+                {doctorChartStatus && <p className="micro">{doctorChartStatus}</p>}
+              </>
+            )}
+          </section>
+        </main>
+      </div>
+    );
+  }
+
   if (clinicMode) {
     return (
       <div className="app">
@@ -1405,6 +3447,14 @@ function App() {
         </main>
       </div>
     );
+  }
+
+  if (labsPageMode) {
+    return renderMarketplacePage("labs");
+  }
+
+  if (pharmacyPageMode) {
+    return renderMarketplacePage("pharmacy");
   }
 
   if (emergencyPublicId) {
@@ -1499,10 +3549,17 @@ function App() {
                         <p>{entry.result?.headline || "-"}</p>
                         <p className="micro">{entry.result?.urgency || "-"}</p>
                         <p className="micro">
-                          {t("doctorSymptoms")}: {(entry.payload?.symptoms || []).join(", ") || t("doctorNone")}
+                          {t("doctorSymptoms")}: {(
+                            entry.payload?.triageType === "dental"
+                              ? entry.payload?.dentalSymptoms || []
+                              : entry.payload?.symptoms || []
+                          ).join(", ") || t("doctorNone")}
                         </p>
                         <p className="micro">
-                          {t("doctorSeverity")}: {entry.payload?.severity || "-"} / 5
+                          {t("doctorSeverity")}:{" "}
+                          {entry.payload?.triageType === "dental"
+                            ? `${entry.payload?.dentalPainScale || "-"} / 10`
+                            : `${entry.payload?.severity || "-"} / 5`}
                         </p>
                         <p className="micro">
                           {t("doctorDuration")}: {entry.payload?.durationDays || "-"} {t("doctorDays")}
@@ -1597,65 +3654,70 @@ function App() {
               {t("navSignOut")}
             </button>
           ) : (
-            <button className="ghost" onClick={() => setAuthMode("signup")}>
+            <button
+              className="ghost"
+              onClick={() => {
+                setAuthMode("signup");
+                scrollToSection("account");
+              }}
+            >
               {t("navCreate")}
             </button>
           )}
-          <a className="primary" href="#triage">
-            {t("navStart")}
-          </a>
         </div>
       </header>
 
       <main>
-        <section className="hero">
-          <div className="hero-copy">
-            <p className="eyebrow">{t("heroEyebrow")}</p>
-            <h1>
-              {t("heroTitle")}
-            </h1>
-            <p className="lead">
-              {t("heroLead")}
-            </p>
-            <div className="hero-actions">
-              <a className="primary" href="#triage">
-                {t("heroStart")}
-              </a>
-              <a className="secondary" href="#how">
-                {t("heroHow")}
-              </a>
-            </div>
-            <p className="micro">
-              {t("heroNotice")}
-            </p>
-          </div>
-          <div className="hero-card">
-            <h3>{t("safetyTitle")}</h3>
-            <p>{profileSummary}</p>
-            <div className="pill-row">
-              <span className="pill">{t("pillOffline")}</span>
-              <span className="pill">{language === "gu" ? "Gujarati" : "English"}</span>
-              <span className="pill">{t("pillPrivacy")}</span>
-              <span className="pill">{t("pillBharat")}</span>
-            </div>
-            <div className="hero-grid">
-              <div>
-                <p className="stat">4 min</p>
-                <p className="stat-label">{t("statTime")}</p>
+        {!isOpsUser && (
+          <section className="hero">
+            <div className="hero-copy">
+              <p className="eyebrow">{t("heroEyebrow")}</p>
+              <h1>
+                {t("heroTitle")}
+              </h1>
+              <p className="lead">
+                {t("heroLead")}
+              </p>
+              <div className="hero-actions">
+                <a className="primary" href="#triage">
+                  {t("heroStart")}
+                </a>
+                <a className="secondary" href="#how">
+                  {t("heroHow")}
+                </a>
               </div>
-              <div>
-                <p className="stat">24/7</p>
-                <p className="stat-label">{t("statAccess")}</p>
+              <p className="micro">
+                {t("heroNotice")}
+              </p>
+            </div>
+            <div className="hero-card">
+              <h3>{t("safetyTitle")}</h3>
+              <p>{profileSummary}</p>
+              <div className="pill-row">
+                <span className="pill">{t("pillOffline")}</span>
+                <span className="pill">{language === "gu" ? "Gujarati" : "English"}</span>
+                <span className="pill">{t("pillPrivacy")}</span>
+                <span className="pill">{t("pillBharat")}</span>
               </div>
-              <div>
-                <p className="stat">1 tap</p>
-                <p className="stat-label">{t("statSave")}</p>
+              <div className="hero-grid">
+                <div>
+                  <p className="stat">4 min</p>
+                  <p className="stat-label">{t("statTime")}</p>
+                </div>
+                <div>
+                  <p className="stat">24/7</p>
+                  <p className="stat-label">{t("statAccess")}</p>
+                </div>
+                <div>
+                  <p className="stat">1 tap</p>
+                  <p className="stat-label">{t("statSave")}</p>
+                </div>
               </div>
             </div>
-          </div>
-        </section>
+          </section>
+        )}
 
-        {user && (
+        {user && !isOpsUser && (
           <section className="member-zone">
             <div className="member-head">
               <h2>{t("memberTitle")}</h2>
@@ -1698,7 +3760,7 @@ function App() {
               <article className="member-card muted">
                 <h3>{t("memberCardRecords")}</h3>
                 <p className="member-metric">PDF / Lab / Rx</p>
-                <button type="button" className="secondary">
+                <button type="button" className="secondary" onClick={openRecordUploader}>
                   {t("memberUploadDocs")}
                 </button>
               </article>
@@ -1706,6 +3768,7 @@ function App() {
           </section>
         )}
 
+        {!isOpsUser && (
         <section className="grid">
           <div className="panel">
             <h2 id="triage">{t("triageTitle")}</h2>
@@ -1713,6 +3776,22 @@ function App() {
               {t("triageSubtitle")}
             </p>
             <form className="form" onSubmit={submitTriage}>
+              <div className="action-row">
+                <button
+                  type="button"
+                  className={triageType === "general" ? "chip active" : "chip"}
+                  onClick={() => setTriageType("general")}
+                >
+                  {t("triageModeGeneral")}
+                </button>
+                <button
+                  type="button"
+                  className={triageType === "dental" ? "chip active" : "chip"}
+                  onClick={() => setTriageType("dental")}
+                >
+                  {t("triageModeDental")}
+                </button>
+              </div>
               <div className="form-row">
                 <label>
                   {t("age")}
@@ -1741,65 +3820,129 @@ function App() {
                 </label>
               </div>
 
-              <label className="block">
-                {t("duration")}
-                <input
-                  type="number"
-                  min="1"
-                  value={triageForm.durationDays}
-                  onChange={(event) =>
-                    updateTriageField("durationDays", event.target.value)
-                  }
-                />
-              </label>
-
-              <label className="block">
-                {t("severity")}
-                <input
-                  type="range"
-                  min="1"
-                  max="5"
-                  value={triageForm.severity}
-                  onChange={(event) =>
-                    updateTriageField("severity", event.target.value)
-                  }
-                />
-                <span className="range-label">
-                  {triageForm.severity} / 5
-                </span>
-              </label>
-
-              <div className="checklist">
-                <p className="checklist-title">{t("commonSymptoms")}</p>
-                <div className="chip-grid">
-                  {commonSymptoms.map((symptom) => (
-                    <button
-                      type="button"
-                      key={symptom}
-                      className={
-                        triageForm.symptoms.includes(symptom)
-                          ? "chip active"
-                          : "chip"
+              {triageType === "general" ? (
+                <>
+                  <label className="block">
+                    {t("duration")}
+                    <input
+                      type="number"
+                      min="1"
+                      value={triageForm.durationDays}
+                      onChange={(event) =>
+                        updateTriageField("durationDays", event.target.value)
                       }
-                      onClick={() => toggleArrayValue("symptoms", symptom)}
-                    >
-                      {translateSymptom(symptom)}
-                    </button>
-                  ))}
-                </div>
-              </div>
+                    />
+                  </label>
 
-              <label className="block">
-                {t("additionalSymptoms")}
-                <input
-                  type="text"
-                  placeholder={t("additionalPlaceholder")}
-                  value={triageForm.additionalSymptoms}
-                  onChange={(event) =>
-                    updateTriageField("additionalSymptoms", event.target.value)
-                  }
-                />
-              </label>
+                  <label className="block">
+                    {t("severity")}
+                    <input
+                      type="range"
+                      min="1"
+                      max="5"
+                      value={triageForm.severity}
+                      onChange={(event) =>
+                        updateTriageField("severity", event.target.value)
+                      }
+                    />
+                    <span className="range-label">
+                      {triageForm.severity} / 5
+                    </span>
+                  </label>
+
+                  <div className="checklist">
+                    <p className="checklist-title">{t("commonSymptoms")}</p>
+                    <div className="chip-grid">
+                      {commonSymptoms.map((symptom) => (
+                        <button
+                          type="button"
+                          key={symptom}
+                          className={
+                            triageForm.symptoms.includes(symptom)
+                              ? "chip active"
+                              : "chip"
+                          }
+                          onClick={() => toggleArrayValue("symptoms", symptom)}
+                        >
+                          {translateSymptom(symptom)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <label className="block">
+                    {t("additionalSymptoms")}
+                    <input
+                      type="text"
+                      placeholder={t("additionalPlaceholder")}
+                      value={triageForm.additionalSymptoms}
+                      onChange={(event) =>
+                        updateTriageField("additionalSymptoms", event.target.value)
+                      }
+                    />
+                  </label>
+                </>
+              ) : (
+                <>
+                  <label className="block">
+                    {t("duration")}
+                    <input
+                      type="number"
+                      min="1"
+                      value={dentalForm.durationDays}
+                      onChange={(event) =>
+                        updateDentalField("durationDays", event.target.value)
+                      }
+                    />
+                  </label>
+                  <label className="block">
+                    {t("dentalPainScale")}
+                    <input
+                      type="range"
+                      min="1"
+                      max="10"
+                      value={dentalForm.painScale}
+                      onChange={(event) =>
+                        updateDentalField("painScale", event.target.value)
+                      }
+                    />
+                    <span className="range-label">
+                      {dentalForm.painScale} / 10
+                    </span>
+                  </label>
+                  <div className="checklist">
+                    <p className="checklist-title">{t("dentalSymptoms")}</p>
+                    <div className="chip-grid">
+                      {dentalSymptomsOptions.map((symptom) => (
+                        <button
+                          type="button"
+                          key={symptom}
+                          className={dentalForm.symptoms.includes(symptom) ? "chip active" : "chip"}
+                          onClick={() => toggleDentalArrayValue("symptoms", symptom)}
+                        >
+                          {symptom}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <label className="block">
+                    <input
+                      type="checkbox"
+                      checked={dentalForm.hotColdTrigger}
+                      onChange={(event) => updateDentalField("hotColdTrigger", event.target.checked)}
+                    />{" "}
+                    {t("dentalHotColdTrigger")}
+                  </label>
+                  <label className="block">
+                    <input
+                      type="checkbox"
+                      checked={dentalForm.swelling}
+                      onChange={(event) => updateDentalField("swelling", event.target.checked)}
+                    />{" "}
+                    {t("dentalSwelling")}
+                  </label>
+                </>
+              )}
 
               <label className="block">
                 Upload a photo (optional)
@@ -1808,24 +3951,33 @@ function App() {
               {triageForm.photoPreview && (
                 <div className="photo-preview">
                   <img src={triageForm.photoPreview} alt="Selected" />
+                  <button type="button" className="remove-btn" onClick={removeTriagePhoto}>
+                    {t("removePhoto")}
+                  </button>
                 </div>
               )}
 
               <div className="checklist warning">
-                <p className="checklist-title">{t("redFlags")}</p>
+                <p className="checklist-title">
+                  {triageType === "general" ? t("redFlags") : t("dentalRedFlags")}
+                </p>
                 <div className="chip-grid">
-                  {redFlagOptions.map((flag) => (
+                  {(triageType === "general" ? redFlagOptions : dentalRedFlagOptions).map((flag) => (
                     <button
                       type="button"
                       key={flag}
                       className={
-                        triageForm.redFlags.includes(flag)
+                        (triageType === "general" ? triageForm.redFlags : dentalForm.redFlags).includes(flag)
                           ? "chip danger"
                           : "chip"
                       }
-                      onClick={() => toggleArrayValue("redFlags", flag)}
+                      onClick={() =>
+                        triageType === "general"
+                          ? toggleArrayValue("redFlags", flag)
+                          : toggleDentalArrayValue("redFlags", flag)
+                      }
                     >
-                      {translateSymptom(flag)}
+                      {triageType === "general" ? translateSymptom(flag) : flag}
                     </button>
                   ))}
                 </div>
@@ -1864,6 +4016,8 @@ function App() {
                     ? t("sourceGemini")
                     : triageResult.source === "openai"
                       ? t("sourceOpenai")
+                      : triageResult.source === "ml_local"
+                        ? t("sourceLocalModel")
                       : t("sourceFallback")}
                 </p>
                 <p className="micro">{triageResult.disclaimer}</p>
@@ -1912,77 +4066,482 @@ function App() {
               </div>
             )}
 
-            <div className="panel-mini">
+            <div className="panel-mini" id="account">
               <h3>{t("account")}</h3>
               {user ? (
                 <div className="account">
                   <p className="account-name">{user.name}</p>
                   <p className="account-email">{user.email}</p>
+                  {(user.role === "doctor" || user.role === "admin") && (
+                    <a className="secondary" href="/doctor-dashboard">
+                      {t("continueAsDoctor")}
+                    </a>
+                  )}
                   <button className="ghost" onClick={signOut}>
                     {t("navSignOut")}
                   </button>
                 </div>
               ) : (
-                <form className="auth" onSubmit={handleAuth}>
-                  <div className="auth-toggle">
-                    <button
-                      type="button"
-                      className={authMode === "login" ? "active" : ""}
-                      onClick={() => setAuthMode("login")}
+                <div className="auth-card">
+                  <label className="block">
+                    Portal
+                    <select
+                      value={portalType}
+                      onChange={(event) => setPortalType(event.target.value)}
                     >
-                      {t("signIn")}
-                    </button>
-                    <button
-                      type="button"
-                      className={authMode === "signup" ? "active" : ""}
-                      onClick={() => setAuthMode("signup")}
-                    >
-                      {t("create")}
-                    </button>
-                  </div>
-                  {authMode === "signup" && (
-                    <label>
-                      {t("name")}
+                      <option value="patient">{t("patientPortal")}</option>
+                      <option value="doctor">{t("doctorPortal")}</option>
+                    </select>
+                  </label>
+                  {portalType === "patient" ? (
+                    <form className="auth" onSubmit={handleAuth}>
+                      <div className="auth-toggle">
+                        <button
+                          type="button"
+                          className={authMode === "login" ? "active" : ""}
+                          onClick={() => setAuthMode("login")}
+                        >
+                          {t("signIn")}
+                        </button>
+                        <button
+                          type="button"
+                          className={authMode === "signup" ? "active" : ""}
+                          onClick={() => setAuthMode("signup")}
+                        >
+                          {t("create")}
+                        </button>
+                      </div>
+                      {authMode === "signup" && (
+                        <label>
+                          {t("name")}
+                          <input
+                            type="text"
+                            value={authForm.name}
+                            onChange={(event) =>
+                              updateAuthField("name", event.target.value)
+                            }
+                          />
+                        </label>
+                      )}
+                      <label>
+                        {t("email")}
+                        <input
+                          type="email"
+                          value={authForm.email}
+                          onChange={(event) =>
+                            updateAuthField("email", event.target.value)
+                          }
+                        />
+                      </label>
+                      <label>
+                        {t("password")}
+                        <input
+                          type="password"
+                          value={authForm.password}
+                          onChange={(event) =>
+                            updateAuthField("password", event.target.value)
+                          }
+                        />
+                      </label>
+                      {authError && <p className="error">{authError}</p>}
+                      <button className="primary full" type="submit">
+                        {authMode === "signup" ? t("createAccount") : t("signIn")}
+                      </button>
+                    </form>
+                  ) : (
+                    <form className="auth" onSubmit={handleDoctorAuth}>
+                      <div className="auth-toggle">
+                        <button
+                          type="button"
+                          className={doctorAuthMode === "login" ? "active" : ""}
+                          onClick={() => setDoctorAuthMode("login")}
+                        >
+                          {t("signIn")}
+                        </button>
+                        <button
+                          type="button"
+                          className={doctorAuthMode === "signup" ? "active" : ""}
+                          onClick={() => setDoctorAuthMode("signup")}
+                        >
+                          {t("create")}
+                        </button>
+                      </div>
+                      {doctorAuthMode === "signup" && (
+                        <label>
+                          {t("name")}
+                          <input
+                            type="text"
+                            value={doctorAuthForm.name}
+                            onChange={(event) =>
+                              updateDoctorAuthField("name", event.target.value)
+                            }
+                          />
+                        </label>
+                      )}
+                      <label>
+                        {t("email")}
+                        <input
+                          type="email"
+                          value={doctorAuthForm.email}
+                          onChange={(event) =>
+                            updateDoctorAuthField("email", event.target.value)
+                          }
+                        />
+                      </label>
+                      <label>
+                        {t("password")}
+                        <input
+                          type="password"
+                          value={doctorAuthForm.password}
+                          onChange={(event) =>
+                            updateDoctorAuthField("password", event.target.value)
+                          }
+                        />
+                      </label>
+                      {doctorAuthError && <p className="error">{doctorAuthError}</p>}
+                      <button className="primary full" type="submit">
+                        {doctorAuthMode === "signup" ? t("createAccount") : t("signIn")}
+                      </button>
+                    </form>
+                  )}
+                  <div className="pass-card" style={{ marginTop: 12 }}>
+                    <p className="micro"><strong>Forgot password</strong></p>
+                    <label className="block">
+                      {t("email")}
                       <input
-                        type="text"
-                        value={authForm.name}
+                        type="email"
+                        value={resetForm.email}
                         onChange={(event) =>
-                          updateAuthField("name", event.target.value)
+                          setResetForm((prev) => ({ ...prev, email: event.target.value }))
                         }
                       />
                     </label>
-                  )}
-                  <label>
-                    {t("email")}
-                    <input
-                      type="email"
-                      value={authForm.email}
-                      onChange={(event) =>
-                        updateAuthField("email", event.target.value)
-                      }
-                    />
-                  </label>
-                  <label>
-                    {t("password")}
-                    <input
-                      type="password"
-                      value={authForm.password}
-                      onChange={(event) =>
-                        updateAuthField("password", event.target.value)
-                      }
-                    />
-                  </label>
-                  {authError && <p className="error">{authError}</p>}
-                  <button className="primary full" type="submit">
-                    {authMode === "signup" ? t("createAccount") : t("signIn")}
-                  </button>
-                </form>
+                    <div className="action-row">
+                      <button className="secondary" type="button" onClick={requestPasswordReset}>
+                        Get reset token
+                      </button>
+                    </div>
+                    <label className="block">
+                      Reset token
+                      <input
+                        type="text"
+                        value={resetForm.token}
+                        onChange={(event) =>
+                          setResetForm((prev) => ({ ...prev, token: event.target.value }))
+                        }
+                      />
+                    </label>
+                    <label className="block">
+                      New password
+                      <input
+                        type="password"
+                        value={resetForm.newPassword}
+                        onChange={(event) =>
+                          setResetForm((prev) => ({ ...prev, newPassword: event.target.value }))
+                        }
+                      />
+                    </label>
+                    <button className="primary full" type="button" onClick={confirmPasswordReset}>
+                      Reset password
+                    </button>
+                    {resetTokenPreview && (
+                      <p className="micro">Demo token: <code>{resetTokenPreview}</code></p>
+                    )}
+                    {resetStatus && <p className="micro">{resetStatus}</p>}
+                  </div>
+                </div>
               )}
             </div>
           </div>
         </section>
+        )}
 
-        {user && (
+        {["admin", "front_desk"].includes(user?.role) && (
+          <section className="grid" id="admin-ops">
+            <div className="panel">
+              <h2>Front-desk / admin dashboard</h2>
+              <p className="panel-sub">
+                Live view of today’s OPD flow for trial operations.
+              </p>
+              <div className="action-row">
+                <button className="secondary" type="button" onClick={loadAdminOps}>
+                  Refresh dashboard
+                </button>
+                <button className="secondary" type="button" onClick={loadOpsQueue}>
+                  Refresh queue
+                </button>
+              </div>
+              {(adminOpsStatus || opsQueueStatus) && <p className="micro">{adminOpsStatus || opsQueueStatus}</p>}
+              {adminOps && (
+                <>
+                  <div className="member-grid">
+                    <div className="panel-mini">
+                      <h3>Today total</h3>
+                      <p className="metric-value">{adminOps.today?.total || 0}</p>
+                    </div>
+                    <div className="panel-mini">
+                      <h3>Checked in</h3>
+                      <p className="metric-value">{adminOps.today?.checkedIn || 0}</p>
+                    </div>
+                    <div className="panel-mini">
+                      <h3>Completed</h3>
+                      <p className="metric-value">{adminOps.today?.completed || 0}</p>
+                    </div>
+                    <div className="panel-mini">
+                      <h3>No show</h3>
+                      <p className="metric-value">{adminOps.today?.noShow || 0}</p>
+                    </div>
+                  </div>
+                  <div className="grid">
+                    <div className="panel result">
+                      <h3>Upcoming appointments</h3>
+                      <div className="history-list">
+                        {(adminOps.upcomingAppointments || []).map((item) => (
+                          <div key={`ops-appt-${item.id}`} className="history-card">
+                            <p className="history-headline">
+                              {item.department_name || "Department"} • {item.status}
+                            </p>
+                            <p className="micro">
+                              {item.doctor_name ? `Dr. ${item.doctor_name}` : "Unassigned doctor"}
+                            </p>
+                            <p className="micro">{item.patient_name}</p>
+                            <p className="micro">{item.reason}</p>
+                            <p className="micro">{new Date(item.scheduled_at).toLocaleString()}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="panel result">
+                      <h3>Department load today</h3>
+                      <div className="history-list">
+                        {(adminOps.departmentLoad || []).map((item, index) => (
+                          <div key={`ops-dept-${index}`} className="history-card">
+                            <p className="history-headline">{item.department_name}</p>
+                            <p className="micro">{item.total} appointments</p>
+                          </div>
+                        ))}
+                      </div>
+                      <h3 style={{ marginTop: 16 }}>Doctor load today</h3>
+                      <div className="history-list">
+                        {(adminOps.doctorLoad || []).map((item, index) => (
+                          <div key={`ops-doc-${index}`} className="history-card">
+                            <p className="history-headline">{item.doctor_name}</p>
+                            <p className="micro">{item.total} appointments</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="panel result" style={{ marginTop: 16 }}>
+                    <h3>Today queue actions</h3>
+                    <div className="history-list">
+                      {opsQueue.map((item) => (
+                        <div key={`queue-${item.id}`} className="history-card">
+                          <p className="history-headline">
+                            #{item.id} • {item.patient_name}
+                            {item.member_name ? ` (${item.member_name})` : ""}
+                          </p>
+                          <p className="micro">
+                            {item.department_name || "Department"} • {item.doctor_name ? `Dr. ${item.doctor_name}` : "No doctor"}
+                          </p>
+                          <p className="micro">
+                            {new Date(item.scheduled_at).toLocaleString()} • {item.status}
+                          </p>
+                          <p className="micro">{item.reason}</p>
+                          <div className="action-row">
+                            <button
+                              className="secondary"
+                              type="button"
+                              onClick={() => updateAppointmentStatus(item.id, "checked_in")}
+                            >
+                              Check in
+                            </button>
+                            <button
+                              className="secondary"
+                              type="button"
+                              onClick={() => updateAppointmentStatus(item.id, "completed")}
+                            >
+                              Complete
+                            </button>
+                            <button
+                              className="secondary"
+                              type="button"
+                              onClick={() => updateAppointmentStatus(item.id, "no_show")}
+                            >
+                              No show
+                            </button>
+                          </div>
+                          <div className="form-row">
+                            <label>
+                              Fee
+                              <input
+                                type="number"
+                                min="0"
+                                value={billingDrafts[item.id]?.amount ?? ""}
+                                onChange={(event) =>
+                                  updateBillingDraft(item.id, "amount", event.target.value)
+                                }
+                              />
+                            </label>
+                            <label>
+                              Billing
+                              <select
+                                value={billingDrafts[item.id]?.status || "unpaid"}
+                                onChange={(event) =>
+                                  updateBillingDraft(item.id, "status", event.target.value)
+                                }
+                              >
+                                <option value="unpaid">Unpaid</option>
+                                <option value="paid">Paid</option>
+                                <option value="partial">Partial</option>
+                                <option value="waived">Waived</option>
+                              </select>
+                            </label>
+                            <label>
+                              Method
+                              <select
+                                value={billingDrafts[item.id]?.paymentMethod || ""}
+                                onChange={(event) =>
+                                  updateBillingDraft(item.id, "paymentMethod", event.target.value)
+                                }
+                              >
+                                <option value="">Select</option>
+                                <option value="cash">Cash</option>
+                                <option value="upi">UPI</option>
+                                <option value="card">Card</option>
+                              </select>
+                            </label>
+                          </div>
+                          <div className="action-row">
+                            <button
+                              className="primary"
+                              type="button"
+                              onClick={() => saveBillingForAppointment(item.id)}
+                            >
+                              Save billing
+                            </button>
+                            <button
+                              className="ghost"
+                              type="button"
+                              onClick={() => viewReceipt(item.id)}
+                            >
+                              View receipt
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </section>
+        )}
+
+        {user?.role === "admin" && (
+          <section className="grid" id="admin-users">
+            <div className="panel">
+              <h2>Admin user access</h2>
+              <p className="panel-sub">
+                Approve doctors, assign departments, and disable accounts before go-live.
+              </p>
+              <div className="action-row">
+                <button className="secondary" type="button" onClick={loadAdminUsers}>
+                  Refresh users
+                </button>
+              </div>
+              {adminUsersStatus && <p className="micro">{adminUsersStatus}</p>}
+              <div className="history-list">
+                {adminUsers.slice(0, 12).map((adminUser) => (
+                  <div key={adminUser.id} className="history-card">
+                    <p className="history-headline">
+                      {adminUser.name} {adminUser.id === user.id ? "(You)" : ""}
+                    </p>
+                    <p className="micro">{adminUser.email}</p>
+                    <div className="form-row">
+                      <label>
+                        Role
+                        <select
+                          value={adminUser.roleDraft}
+                          onChange={(event) =>
+                            updateAdminUserDraft(adminUser.id, "roleDraft", event.target.value)
+                          }
+                        >
+                          <option value="patient">Patient</option>
+                          <option value="doctor">Doctor</option>
+                          <option value="front_desk">Front desk</option>
+                          <option value="admin">Admin</option>
+                        </select>
+                      </label>
+                      <label>
+                        Access
+                        <select
+                          value={adminUser.activeDraft}
+                          onChange={(event) =>
+                            updateAdminUserDraft(adminUser.id, "activeDraft", event.target.value)
+                          }
+                        >
+                          <option value="active">Active</option>
+                          <option value="disabled">Disabled</option>
+                        </select>
+                      </label>
+                    </div>
+                    {(adminUser.roleDraft === "doctor" || adminUser.roleDraft === "admin") && (
+                      <>
+                        <div className="form-row">
+                          <label>
+                            Department
+                            <select
+                              value={adminUser.departmentIdDraft}
+                              onChange={(event) =>
+                                updateAdminUserDraft(
+                                  adminUser.id,
+                                  "departmentIdDraft",
+                                  event.target.value,
+                                )
+                              }
+                            >
+                              <option value="">Select department</option>
+                              {departments.map((department) => (
+                                <option key={department.id} value={department.id}>
+                                  {department.name}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <label>
+                            Qualification
+                            <input
+                              type="text"
+                              value={adminUser.qualificationDraft}
+                              onChange={(event) =>
+                                updateAdminUserDraft(
+                                  adminUser.id,
+                                  "qualificationDraft",
+                                  event.target.value,
+                                )
+                              }
+                            />
+                          </label>
+                        </div>
+                      </>
+                    )}
+                    <button
+                      className="primary"
+                      type="button"
+                      disabled={adminSavingUserId === adminUser.id}
+                      onClick={() => saveAdminUser(adminUser)}
+                    >
+                      {adminSavingUserId === adminUser.id ? "Saving..." : "Save access"}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {user && !isOpsUser && (
           <section className="grid" id="profile">
             <div className="panel">
               <h2>{t("profileTitle")}</h2>
@@ -2062,7 +4621,7 @@ function App() {
                 <p className="micro">{t("historyEmpty")}</p>
               ) : (
                 <div className="history-list">
-                  {history.map((item) => (
+                  {visibleHistory.map((item) => (
                     <div key={item.id} className="history-card">
                       <p className="history-date">
                         {new Date(item.createdAt).toLocaleString()}
@@ -2075,6 +4634,15 @@ function App() {
                       </p>
                     </div>
                   ))}
+                  {history.length > 3 && (
+                    <button
+                      type="button"
+                      className="ghost full"
+                      onClick={() => setHistoryExpanded((prev) => !prev)}
+                    >
+                      {historyExpanded ? t("historyShowLess") : t("historyShowMore")}
+                    </button>
+                  )}
                 </div>
               )}
               {historyStatus && <p className="micro">{historyStatus}</p>}
@@ -2082,7 +4650,7 @@ function App() {
           </section>
         )}
 
-        {user && (
+        {user && !isOpsUser && (
           <section className="grid" id="family">
             <div className="panel">
               <h2>{t("familyTitle")}</h2>
@@ -2176,10 +4744,15 @@ function App() {
               </div>
             </div>
             <div className="panel result">
-              <h2>{t("recordsTitle")}</h2>
+              <h2 id="records">{t("recordsTitle")}</h2>
               <label className="block">
                 {t("uploadRecord")}
-                <input type="file" accept="image/*,application/pdf" onChange={uploadRecord} />
+                <input
+                  ref={recordsInputRef}
+                  type="file"
+                  accept="image/*,application/pdf"
+                  onChange={uploadRecord}
+                />
               </label>
               {recordStatus && <p className="micro">{recordStatus}</p>}
               <div className="history-list">
@@ -2187,15 +4760,19 @@ function App() {
                   <div key={r.id} className="history-card">
                     <p className="history-headline">{r.file_name}</p>
                     <p className="micro">{new Date(r.created_at).toLocaleString()}</p>
+                    <button
+                      type="button"
+                      className="remove-link"
+                      onClick={() => deleteRecord(r.id)}
+                    >
+                      {t("removeRecord")}
+                    </button>
                   </div>
                 ))}
               </div>
               <div className="action-row">
                 <button type="button" className="secondary" onClick={generateEmergencyCard}>
                   {t("generateEmergencyCard")}
-                </button>
-                <button type="button" className="secondary" onClick={printHealthCard}>
-                  {t("printHealthCard")}
                 </button>
               </div>
               {emergencyCard && (
@@ -2212,7 +4789,7 @@ function App() {
           </section>
         )}
 
-        {user && (
+        {user && !isOpsUser && (
           <section className="panel health-pass">
             <h2>{t("healthPassTitle")}</h2>
             <p className="panel-sub">{t("healthPassBody")}</p>
@@ -2244,13 +4821,369 @@ function App() {
             <h3>{t("shareHistory")}</h3>
             <div className="history-list">
               {shareHistory.map((h, idx) => (
-                <div key={`${h.pass_code}-${idx}`} className="history-card">
-                  <p className="history-headline">{h.pass_code}</p>
+                <div key={`${h.code}-${idx}`} className="history-card">
+                  <p className="history-headline">{h.code}</p>
                   <p className="micro">
-                    {h.doctor_name || "Clinic"} • {new Date(h.viewed_at).toLocaleString()}
+                    Active until {new Date(h.expiresAt).toLocaleString()}
                   </p>
                 </div>
               ))}
+            </div>
+          </section>
+        )}
+
+        {user && !isOpsUser && (
+          <section className="grid" id="teleconsult">
+            <div className="panel">
+              <h2>{t("teleTitle")}</h2>
+              <p className="panel-sub">{t("teleSubtitle")}</p>
+              <form className="form" onSubmit={submitCareRequest}>
+                <label className="block">
+                  {t("careRequestType")}
+                  <select
+                    value={careRequestMode}
+                    onChange={(event) => setCareRequestMode(event.target.value)}
+                  >
+                    <option value="in_person">{t("careRequestInPerson")}</option>
+                    <option value="video">{t("teleModeVideo")}</option>
+                    <option value="audio">{t("teleModeAudio")}</option>
+                    <option value="chat">{t("teleModeChat")}</option>
+                  </select>
+                </label>
+                {careRequestMode === "in_person" ? (
+                  <>
+                    <label className="block">
+                      {t("apptDepartment")}
+                      <select
+                        value={appointmentForm.departmentId}
+                        onChange={(event) =>
+                          setAppointmentForm((prev) => ({
+                            ...prev,
+                            departmentId: event.target.value,
+                            doctorId: "",
+                          }))
+                        }
+                      >
+                        <option value="">Select department</option>
+                        {departments.map((department) => (
+                          <option key={department.id} value={department.id}>
+                            {department.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="block">
+                      Doctor
+                      <select
+                        value={appointmentForm.doctorId}
+                        onChange={(event) =>
+                          setAppointmentForm((prev) => ({
+                            ...prev,
+                            doctorId: event.target.value,
+                            slotTime: "",
+                          }))
+                        }
+                        disabled={!appointmentForm.departmentId || departmentDoctors.length === 0}
+                      >
+                        <option value="">
+                          {appointmentForm.departmentId
+                            ? departmentDoctors.length > 0
+                              ? "Select doctor"
+                              : "No doctors available"
+                            : "Select department first"}
+                        </option>
+                        {departmentDoctors.map((doctor) => (
+                          <option key={doctor.id} value={doctor.id}>
+                            {doctor.name}
+                            {doctor.qualification ? ` • ${doctor.qualification}` : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="block">
+                      {t("apptReason")}
+                      <textarea
+                        rows={3}
+                        value={appointmentForm.reason}
+                        onChange={(event) =>
+                          setAppointmentForm((prev) => ({ ...prev, reason: event.target.value }))
+                        }
+                      />
+                    </label>
+                    <label className="block">
+                      Appointment date
+                      <input
+                        type="date"
+                        value={appointmentForm.appointmentDate}
+                        onChange={(event) =>
+                          setAppointmentForm((prev) => ({
+                            ...prev,
+                            appointmentDate: event.target.value,
+                            slotTime: "",
+                          }))
+                        }
+                      />
+                    </label>
+                    <label className="block">
+                      Available slot
+                      <select
+                        value={appointmentForm.slotTime}
+                        onChange={(event) =>
+                          setAppointmentForm((prev) => ({ ...prev, slotTime: event.target.value }))
+                        }
+                        disabled={!appointmentForm.appointmentDate || availableSlots.length === 0}
+                      >
+                        <option value="">
+                          {appointmentForm.appointmentDate
+                            ? availableSlots.length > 0
+                              ? "Select slot"
+                              : "No slots available"
+                            : "Select date first"}
+                        </option>
+                        {availableSlots.map((slot) => (
+                          <option key={slot.dateTime} value={slot.time}>
+                            {slot.time}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    {slotStatus && <p className="micro">{slotStatus}</p>}
+                    <button className="primary full" type="submit">
+                      {t("apptBook")}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <label className="block">
+                      {t("teleSlot")}
+                      <input
+                        type="datetime-local"
+                        value={teleForm.preferredSlot}
+                        onChange={(event) => updateTeleField("preferredSlot", event.target.value)}
+                      />
+                    </label>
+                    <label className="block">
+                      {t("telePhone")}
+                      <input
+                        type="text"
+                        value={teleForm.phone}
+                        onChange={(event) => updateTeleField("phone", event.target.value)}
+                        placeholder="+91..."
+                      />
+                    </label>
+                    <label className="block">
+                      {t("teleConcern")}
+                      <textarea
+                        rows={4}
+                        value={teleForm.concern}
+                        onChange={(event) => updateTeleField("concern", event.target.value)}
+                        placeholder={t("teleConcernPlaceholder")}
+                      />
+                    </label>
+                    <button type="submit" className="primary full">
+                      {t("teleBook")}
+                    </button>
+                  </>
+                )}
+              </form>
+              {(teleStatus || appointmentsStatus) && (
+                <p className="micro">{teleStatus || appointmentsStatus}</p>
+              )}
+            </div>
+            <div className="panel result">
+              <h2>{t("careRequestFeedTitle")}</h2>
+              {teleLoading ? (
+                <p className="micro">{t("teleLoading")}</p>
+              ) : teleconsults.length === 0 && appointments.length === 0 ? (
+                <p className="micro">{t("teleEmpty")}</p>
+              ) : (
+                <>
+                  {appointments.length > 0 && (
+                    <div className="history-list">
+                      {appointments.slice(0, 5).map((appointment) => (
+                        <div key={`appt-${appointment.id}`} className="history-card">
+                          <p className="history-headline">
+                            {t("careRequestInPerson")} • {appointment.status}
+                          </p>
+                          <p className="micro">
+                            {appointment.department_name || appointment.department}
+                            {appointment.doctor_name ? ` • Dr. ${appointment.doctor_name}` : ""}
+                          </p>
+                          <p className="micro">{appointment.reason}</p>
+                          <p className="micro">
+                            {new Date(appointment.scheduled_at).toLocaleString()}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {teleconsults.length > 0 && (
+                    <>
+                      <div className="member-list">
+                    {teleconsults.map((consult) => (
+                      <button
+                        key={consult.id}
+                        type="button"
+                        className={consult.id === activeConsultId ? "chip active" : "chip"}
+                        onClick={() => setActiveConsultId(consult.id)}
+                      >
+                        #{consult.id} • {teleStatusLabel(consult.status)}
+                      </button>
+                    ))}
+                      </div>
+                      {activeConsult && (
+                        <div className="pass-card consult-card">
+                          <p className="history-headline">
+                            {teleStatusLabel(activeConsult.status)} • {activeConsult.mode}
+                          </p>
+                          <p className="micro">{activeConsult.concern}</p>
+                          {activeConsult.preferredSlot && (
+                            <p className="micro">
+                              {t("teleSlot")}: {new Date(activeConsult.preferredSlot).toLocaleString()}
+                            </p>
+                          )}
+                          {activeConsult.meetingUrl && (
+                            <a
+                              className="secondary"
+                              href={activeConsult.meetingUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              Join consult link
+                            </a>
+                          )}
+                          <div className="consult-thread">
+                            {consultMessages.map((msg) => (
+                              <div
+                                key={msg.id}
+                                className={`chat-msg ${msg.senderRole === "doctor" ? "bot" : "user"}`}
+                              >
+                                <p className="micro">{new Date(msg.createdAt).toLocaleString()}</p>
+                                <p>{msg.message}</p>
+                              </div>
+                            ))}
+                          </div>
+                          <form className="chat-form" onSubmit={sendConsultMessage}>
+                            <input
+                              type="text"
+                              value={consultMessageText}
+                              placeholder={t("teleMessagePlaceholder")}
+                              onChange={(event) => setConsultMessageText(event.target.value)}
+                            />
+                            <button className="primary" type="submit">
+                              {t("teleSend")}
+                            </button>
+                          </form>
+                          {consultMessageStatus && <p className="micro">{consultMessageStatus}</p>}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+          </section>
+        )}
+
+        {user && !isOpsUser && (
+          <section className="grid" id="appointments">
+            <div className="panel result">
+              <h2>{t("encounterTitle")}</h2>
+              {encounters.length === 0 ? (
+                <p className="micro">{t("encounterEmpty")}</p>
+              ) : (
+                <>
+                  <div className="member-list">
+                    {encounters.map((encounter) => (
+                      <button
+                        key={encounter.id}
+                        type="button"
+                        className={encounter.id === activeEncounterId ? "chip active" : "chip"}
+                        onClick={() => setActiveEncounterId(encounter.id)}
+                      >
+                        #{encounter.id} • {encounter.status}
+                      </button>
+                    ))}
+                  </div>
+                  {encounterDetail && (
+                    <div className="pass-card consult-card">
+                      <p className="history-headline">
+                        {t("encounterDoctor")}: {encounterDetail.encounter.doctor_name || "-"}
+                      </p>
+                      <p className="micro">
+                        {t("encounterDiagnosis")}:{" "}
+                        {encounterDetail.encounter.diagnosis_text ||
+                          encounterDetail.encounter.diagnosis_code ||
+                          "-"}
+                      </p>
+                      <p className="micro">
+                        {t("encounterPlan")}: {encounterDetail.encounter.plan_text || "-"}
+                      </p>
+                      <p className="micro">
+                        {t("encounterVitals")}:{" "}
+                        {encounterDetail.encounter.vitals?.summary ||
+                          JSON.stringify(encounterDetail.encounter.vitals || {})}
+                      </p>
+                      <h4>{t("encounterNotes")}</h4>
+                      <div className="history-list">
+                        {(encounterDetail.notes || []).map((note) => (
+                          <div key={note.id} className="history-card">
+                            <p className="micro">{new Date(note.created_at).toLocaleString()}</p>
+                            <p>{note.note_text}</p>
+                            <p className="micro">{note.signature_text}</p>
+                          </div>
+                        ))}
+                      </div>
+                      <h4>{t("encounterPrescription")}</h4>
+                      <div className="history-list">
+                        {(encounterDetail.prescriptions || []).map((rx) => (
+                          <div key={rx.id} className="history-card">
+                            <p className="micro">{new Date(rx.created_at).toLocaleString()}</p>
+                            <p>{rx.instructions || "-"}</p>
+                            <ul>
+                              {(rx.items || []).map((item) => (
+                                <li key={item.id}>
+                                  {item.medicine} {item.dose ? `| ${item.dose}` : ""}{" "}
+                                  {item.frequency ? `| ${item.frequency}` : ""}{" "}
+                                  {item.duration ? `| ${item.duration}` : ""}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        ))}
+                      </div>
+                      <h4>{t("encounterOrders")}</h4>
+                      <div className="history-list">
+                        {(encounterDetail.orders || []).map((order) => (
+                          <div key={order.id} className="history-card">
+                            <p className="history-headline">
+                              {order.order_type} • {order.status}
+                            </p>
+                            <p className="micro">
+                              {order.item_name} {order.destination ? `• ${order.destination}` : ""}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+              {encounterStatus && <p className="micro">{encounterStatus}</p>}
+            </div>
+            <div className="panel result">
+              <h2>Labs & Pharmacy</h2>
+              <p className="panel-sub">
+                Open dedicated tabs to compare nearby options by price, speed, and visit mode.
+              </p>
+              <div className="action-row">
+                <a className="secondary" href="/labs" target="_blank" rel="noreferrer">
+                  Open labs
+                </a>
+                <a className="secondary" href="/pharmacy" target="_blank" rel="noreferrer">
+                  Open pharmacy
+                </a>
+              </div>
             </div>
           </section>
         )}
@@ -2348,6 +5281,9 @@ function App() {
           <div className="action-row">
             <a className="secondary" href="/clinic">
               {t("clinicTitle")}
+            </a>
+            <a className="secondary" href="/doctor-dashboard">
+              {t("doctorConsoleOpen")}
             </a>
           </div>
         </section>

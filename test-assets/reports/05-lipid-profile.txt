@@ -1,0 +1,10 @@
+HEARTLINE PATHOLOGY
+Patient Name: Demo Patient E
+Age/Sex: 52 Years / Male
+Report Date: 2026-03-10
+
+LIPID PROFILE
+Total Cholesterol 228 mg/dL
+LDL 149 mg/dL
+HDL 38 mg/dL
+Triglycerides 212 mg/dL

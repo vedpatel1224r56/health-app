@@ -1,0 +1,56 @@
+services:
+  backend:
+    build:
+      context: ./backend
+    image: sehatsaathi/backend:local
+    env_file:
+      - ./backend/.env
+    environment:
+      NODE_ENV: production
+      PORT: 8080
+      DB_PATH: /app/data/health.db
+      UPLOAD_DIR: /app/data/uploads
+    volumes:
+      - ./database:/app/data
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  patient-app:
+    build:
+      context: ./frontend-patient
+      args:
+        VITE_API_URL: http://localhost:8080
+    image: sehatsaathi/frontend-patient:local
+    ports:
+      - "5173:8080"
+    restart: unless-stopped
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  ops-app:
+    build:
+      context: ./frontend-ops
+      args:
+        VITE_API_URL: http://localhost:8080
+    image: sehatsaathi/frontend-ops:local
+    ports:
+      - "5174:8080"
+    restart: unless-stopped
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

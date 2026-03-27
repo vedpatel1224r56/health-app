@@ -1,9 +1,14 @@
 .env
 **/.env
 **/.env.local
+**/.env.backup*
+**/__pycache__/
 **/node_modules/
 frontend/dist/
+frontend-ops/dist/
+frontend-patient/dist/
 backend/dist/
+backend/*.db
 database/*.db
 database/backups/
 database/uploads/

@@ -1,0 +1,26 @@
+triage_type,age,sex,duration_days,severity,symptoms,red_flags,dental_pain_scale,dental_symptoms,dental_red_flags,dental_hot_cold_trigger,dental_swelling,conditions,region,label
+general,28,Female,2,2,"fever|cough","",0,"","",0,0,"","Vadodara",self_care
+general,70,Male,4,4,"fever|weakness","",0,"","",0,0,"hypertension|diabetes","Vadodara",clinic_24h
+general,33,Male,1,5,"chest pain|sweating","chest pain|trouble breathing",0,"","",0,0,"","Vadodara",emergency
+general,22,Female,1,3,"vomiting|diarrhea","",0,"","",0,0,"","Anand",self_care
+general,4,Male,3,4,"fever|cough","",0,"","",0,0,"","Vadodara",clinic_24h
+general,58,Female,10,3,"cough|fatigue","",0,"","",0,0,"asthma","Vadodara",clinic_24h
+general,41,Male,1,5,"loss of consciousness","loss of consciousness",0,"","",0,0,"","Vadodara",emergency
+general,26,Female,2,2,"headache|body ache","",0,"","",0,0,"","Vadodara",self_care
+general,63,Male,6,4,"shortness of breath","trouble breathing",0,"","",0,0,"hypertension","Vadodara",emergency
+general,37,Female,8,3,"fever|rash","",0,"","",0,0,"","Nadiad",clinic_24h
+general,52,Male,2,4,"abdominal pain|vomiting","",0,"","",0,0,"diabetes","Vadodara",clinic_24h
+general,31,Female,1,2,"sore throat","",0,"","",0,0,"","Vadodara",self_care
+dental,24,Male,1,2,"","",4,"tooth pain|tooth sensitivity","",1,0,"","Vadodara",self_care
+dental,36,Female,3,3,"","",6,"tooth pain|gum swelling","",0,1,"","Vadodara",clinic_24h
+dental,47,Male,1,4,"","",8,"broken tooth|bleeding gums","uncontrolled oral bleeding",0,1,"diabetes","Vadodara",emergency
+dental,29,Female,5,3,"","",7,"wisdom tooth pain|jaw pain","",0,1,"","Vadodara",clinic_24h
+dental,18,Male,2,2,"","",5,"mouth ulcer","",0,0,"","Vadodara",self_care
+dental,55,Female,1,3,"","",8,"gum swelling","facial swelling with fever",0,1,"diabetes","Vadodara",emergency
+dental,43,Male,2,3,"","",7,"tooth pain","difficulty swallowing",0,1,"","Vadodara",emergency
+dental,32,Female,2,2,"","",4,"bad breath|bleeding gums","",0,0,"","Vadodara",self_care
+dental,61,Male,4,3,"","",7,"tooth pain|gum swelling","",1,1,"hypertension","Vadodara",clinic_24h
+dental,39,Female,1,2,"","",5,"tooth sensitivity","",1,0,"","Vadodara",self_care
+general,45,Male,2,4,"high fever|body ache","",0,"","",0,0,"","Vadodara",clinic_24h
+general,35,Female,1,5,"seizure","seizure",0,"","",0,0,"","Vadodara",emergency
+general,27,Male,2,3,"fever|headache","",0,"","",0,0,"","Vadodara",self_care

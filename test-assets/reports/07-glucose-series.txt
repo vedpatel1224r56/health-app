@@ -1,0 +1,9 @@
+FAMILY HEALTH LAB
+Patient Name: Demo Patient G
+Age/Sex: 44 Years / Female
+Report Date: 2026-03-05
+
+BLOOD SUGAR PROFILE
+FBS 132 mg/dL
+PPBS 214 mg/dL
+RBS 188 mg/dL

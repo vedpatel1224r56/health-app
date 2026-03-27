@@ -1,0 +1,16 @@
+CITY CARE LAB
+Patient Name: Demo Patient B
+Age/Sex: 28 Years / Female
+Report Date: 2026-03-17
+
+COMPLETE BLOOD COUNT
+Hemoglobin 11.8 g/dL
+R.B.C. Count 4.32 mill/cmm
+PCV 36.4 %
+MCV 84.3 fL
+MCH 27.4 pg
+MCHC 32.6 %
+RDW 13.8 fL
+WBC 7.9 10^3/uL
+ESR 18 mm/hr
+Platelet Count 246 10^3/uL

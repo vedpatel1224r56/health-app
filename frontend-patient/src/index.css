@@ -1,0 +1,25 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+  background: #f7f9fb;
+}
+
+body {
+  margin: 0;
+  font-family: "Space Grotesk", sans-serif;
+  background: #f7f9fb;
+  color: #1b1b1b;
+}
+
+a {
+  color: inherit;
+}
+
+button {
+  font-family: inherit;
+}

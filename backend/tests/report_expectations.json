@@ -1,0 +1,84 @@
+{
+  "R1-1146-25_571396_13257 reports .pdf": {
+    "filePath": "/Users/vedpatel/Downloads/R1-1146-25_571396_13257 reports .pdf",
+    "sections": [
+      {
+        "reportType": "cbc",
+        "metrics": {
+          "hemoglobin": 13.5,
+          "rbc_count": 5.69,
+          "mch": 29.9,
+          "mchc": 29.9,
+          "wbc": 9.67,
+          "platelets": 388
+        }
+      },
+      {
+        "reportType": "crp",
+        "metrics": {
+          "crp_quantitative": 3
+        }
+      },
+      {
+        "reportType": "liver",
+        "metrics": {
+          "sgpt_alt": 25,
+          "sgot_ast": 24
+        }
+      },
+      {
+        "reportType": "renal",
+        "metrics": {
+          "creatinine": 0.21
+        }
+      },
+      {
+        "reportType": "thyroid",
+        "metrics": {
+          "tsh": 2.73
+        }
+      },
+      {
+        "reportType": "hba1c",
+        "metrics": {
+          "hba1c": 6.5,
+          "estimated_average_glucose": 145
+        }
+      }
+    ]
+  },
+  "IMG_2746.pdf": {
+    "filePath": "/Users/vedpatel/Downloads/IMG_2746.pdf",
+    "sections": [
+      {
+        "reportType": "anthropometry",
+        "metrics": {
+          "weight": 79,
+          "bmi": 25.2
+        }
+      },
+      {
+        "reportType": "hba1c",
+        "metrics": {
+          "hba1c": 6.9,
+          "estimated_average_glucose": 107
+        }
+      },
+      {
+        "reportType": "cbc",
+        "metrics": {
+          "hemoglobin": 13.2,
+          "rbc_count": 6,
+          "pcv": 45.1,
+          "mcv": 132,
+          "mch": 22,
+          "mchc": 29.3,
+          "rdw": 14.4,
+          "wbc": 11.5,
+          "esr": 10,
+          "platelets": 404
+        }
+      }
+    ]
+  }
+}

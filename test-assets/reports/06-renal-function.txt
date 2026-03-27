@@ -1,0 +1,9 @@
+NEPHRO LAB HUB
+Patient Name: Demo Patient F
+Age/Sex: 61 Years / Male
+Report Date: 2026-03-08
+
+RENAL FUNCTION TEST
+Creatinine 1.7 mg/dL
+Urea 48 mg/dL
+Uric Acid 6.9 mg/dL

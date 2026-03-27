@@ -1,0 +1,9 @@
+SUNRISE DIAGNOSTICS
+Patient Name: Demo Patient A
+Age/Sex: 46 Years / Male
+Report Date: 2026-03-18
+
+HAEMOGLOBIN A1C ESTIMATION
+HbA1c 7.2 %
+Estimated Average Blood Glucose 160 mg/dL
+Method: HPLC

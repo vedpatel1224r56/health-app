@@ -1,0 +1,9 @@
+METRO LAB SERVICES
+Patient Name: Demo Patient C
+Age/Sex: 39 Years / Male
+Report Date: 2026-03-16
+
+LIVER FUNCTION TEST
+Total Bilirubin 1.6 mg/dL
+SGPT / ALT 74 U/L
+SGOT / AST 58 U/L

@@ -1,0 +1,28 @@
+{
+  "dataset": "/Users/vedpatel/health-app/backend/ml/datasets/triage_training_template.csv",
+  "model_path": "/Users/vedpatel/health-app/backend/ml/artifacts/triage_model.joblib",
+  "evaluation_report_path": "/Users/vedpatel/health-app/backend/ml/artifacts/evaluation_report.json",
+  "samples": 25,
+  "labels": [
+    "self_care",
+    "clinic_24h",
+    "emergency"
+  ],
+  "selected_model": "linear_svc",
+  "decision_policy": {
+    "emergency_probability_floor": 0.2
+  },
+  "holdout": {
+    "accuracy": 0.2,
+    "macro_precision": 0.1667,
+    "macro_recall": 0.1667,
+    "macro_f1": 0.1667,
+    "emergency_recall": 0.0
+  },
+  "quality_gates": {
+    "target_min_emergency_recall": 0.85,
+    "target_min_emergency_precision": 0.35,
+    "target_min_macro_f1": 0.55,
+    "passed": false
+  }
+}

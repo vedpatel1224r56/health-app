@@ -1,0 +1,9 @@
+THYRO WELL LABS
+Patient Name: Demo Patient D
+Age/Sex: 34 Years / Female
+Report Date: 2026-03-14
+
+THYROID PROFILE
+TSH 6.4 uIU/mL
+T3 116 ng/dL
+T4 7.8 ug/dL
