@@ -3686,10 +3686,6 @@ function App() {
                   {authError && <p className="error">{authError}</p>}
                   <button className="primary full" type="submit">Sign in to ops</button>
                 </form>
-                <div className="pass-card ops-demo-accounts">
-                  <p className="micro"><strong>Default demo accounts</strong></p>
-                  <p className="micro">Admin: admin@sehatsaathi.local / Admin@12345</p>
-                </div>
               </div>
             </div>
           </section>
