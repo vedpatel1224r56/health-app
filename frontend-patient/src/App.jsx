@@ -1257,11 +1257,27 @@ function App() {
   };
 
   const apiFetch = async (url, options = {}) => {
-    const headers = { ...(options.headers || {}) };
-    if (authToken) {
-      headers.Authorization = `Bearer ${authToken}`;
+    const performRequest = async (tokenOverride = "") => {
+      const headers = { ...(options.headers || {}) };
+      const bearerToken = tokenOverride || authToken;
+      if (bearerToken) {
+        headers.Authorization = `Bearer ${bearerToken}`;
+      }
+      return fetch(url, { ...options, headers });
+    };
+
+    let response = await performRequest();
+    if (response.status !== 401) {
+      return response;
     }
-    return fetch(url, { ...options, headers });
+
+    const refreshedToken = await refreshAccessToken();
+    if (!refreshedToken) {
+      return response;
+    }
+
+    response = await performRequest(refreshedToken);
+    return response;
   };
 
   const wakeBackend = async () => {
