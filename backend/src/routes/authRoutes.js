@@ -5,6 +5,7 @@ const registerAuthRoutes = (fastify, deps) => {
     LOGIN_RATE_LIMIT_PER_MIN,
     OTP_EXPIRES_MINUTES,
     OTP_RATE_LIMIT_PER_MIN,
+    passwordResetEmailConfigured = false,
     nowIso,
     run,
     get,
@@ -272,6 +273,11 @@ const registerAuthRoutes = (fastify, deps) => {
     if (!rl.allowed) {
       return reply.code(429).send({ error: `Too many requests. Retry in ${rl.retryAfterSec}s.` });
     }
+    if (!passwordResetEmailConfigured) {
+      return reply.code(503).send({
+        error: "Password reset email is not configured yet. Please contact support.",
+      });
+    }
     const { email } = request.body || {};
     if (!email) {
       return reply.code(400).send({ error: "Email is required." });
@@ -299,11 +305,17 @@ const registerAuthRoutes = (fastify, deps) => {
       [user.id, otpHash, expiresAt, nowIso()],
     );
     const delivery = await queuePasswordResetOtpDelivery({ email: user.email, otp, expiresAt });
+    if (!delivery.resendDelivered && !delivery.webhookDelivered) {
+      return reply.code(502).send({
+        error: "Unable to send OTP email right now. Please try again in a few minutes.",
+      });
+    }
     responseBody.delivery = delivery.resendDelivered
       ? "email"
       : delivery.webhookDelivered
         ? "webhook"
         : "outbox";
+    responseBody.message = "If the account exists, an OTP has been sent to the email address.";
     return responseBody;
   });
 

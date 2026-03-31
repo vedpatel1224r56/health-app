@@ -434,6 +434,9 @@ registerAuthRoutes(fastify, {
   LOGIN_RATE_LIMIT_PER_MIN,
   OTP_EXPIRES_MINUTES,
   OTP_RATE_LIMIT_PER_MIN,
+  passwordResetEmailConfigured: Boolean(
+    (RESEND_API_KEY && RESEND_FROM_EMAIL) || OTP_DELIVERY_WEBHOOK_URL,
+  ),
   nowIso,
   run,
   get,
