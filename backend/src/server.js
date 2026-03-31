@@ -563,6 +563,7 @@ registerPatientRoutes(fastify, {
   incrementMetric,
   metricDate,
   createPublicId,
+  enqueueAndDeliverUserNotification,
 });
 
 registerClinicalRoutes(fastify, {

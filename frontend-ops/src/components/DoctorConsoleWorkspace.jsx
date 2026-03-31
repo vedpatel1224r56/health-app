@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { PediatricGrowthChart } from './PediatricGrowthChart'
 import { ReportTrendChart } from './ReportTrendChart'
+import { DoctorAssistPanel } from './DoctorAssistPanel'
 import {
   WHO_UNDER5_MAX_MONTHS,
   WHO_OLDER_CHILD_MAX_MONTHS,
@@ -38,6 +39,47 @@ function formatConsultLabel(appointment) {
   const when = appointment?.scheduled_at ? new Date(appointment.scheduled_at).toLocaleString() : '-'
   const modePrefix = appointment?.sourceType === 'remote' ? `${String(appointment?.mode || 'chat').toUpperCase()} • ` : ''
   return `${modePrefix}#${appointment?.id || '-'} • ${appointment?.patient_name || 'Patient'} • ${appointment?.department_name || appointment?.department || '-'} • ${when}`
+}
+
+function resolveRemoteConsultJoinUrl(consult) {
+  const saved = String(consult?.meetingUrl || '').trim()
+  if (saved) return saved
+  return ''
+}
+
+const DEFAULT_RTC_CONFIGURATION = {
+  iceServers: [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }],
+}
+
+async function requestUserMedia(constraints) {
+  if (navigator.mediaDevices?.getUserMedia) {
+    return navigator.mediaDevices.getUserMedia(constraints)
+  }
+  const legacyGetUserMedia =
+    navigator.getUserMedia ||
+    navigator.webkitGetUserMedia ||
+    navigator.mozGetUserMedia
+  if (!legacyGetUserMedia) {
+    throw new Error('Camera or microphone access is not available in this browser.')
+  }
+  return new Promise((resolve, reject) => {
+    legacyGetUserMedia.call(navigator, constraints, resolve, reject)
+  })
+}
+
+function serializeSessionDescription(description) {
+  if (!description) return null
+  return { type: description.type, sdp: description.sdp }
+}
+
+function serializeIceCandidate(candidate) {
+  if (!candidate) return null
+  return {
+    candidate: candidate.candidate,
+    sdpMid: candidate.sdpMid,
+    sdpMLineIndex: candidate.sdpMLineIndex,
+    usernameFragment: candidate.usernameFragment,
+  }
 }
 
 function formatStatus(status) {
@@ -337,40 +379,437 @@ function getConsoleCopy(consoleKind) {
   }
 }
 
-function DoctorAudioConsultPanel({
+function DoctorMediaConsultPanel({
   consult,
+  apiBase,
+  authToken,
+  currentUserId,
   doctorConsentAccepted,
   updateRemoteConsultStatus,
+  openStandaloneLiveConsult,
+  standaloneLiveMode = false,
+  autoStartStandalone = false,
 }) {
   const roomReady = ['scheduled', 'in_progress'].includes(String(consult?.status || '').toLowerCase())
-  const [callStatus, setCallStatus] = useState('Call the patient on the shared phone number and continue documenting here.')
+  const [callStatus, setCallStatus] = useState('Start the live consult here, then keep documenting in this console.')
+  const consultMode = String(consult?.mode || '').toLowerCase()
+  const sessionId = useMemo(() => `teleconsult-${consult?.id || 'room'}`, [consult?.id])
+  const isVideo = consultMode === 'video'
+  const roomUnlocked = doctorConsentAccepted && roomReady
+  const peerRef = useRef(null)
+  const localStreamRef = useRef(null)
+  const remoteStreamRef = useRef(null)
+  const localMediaRef = useRef(null)
+  const remoteMediaRef = useRef(null)
+  const lastEventIdRef = useRef(0)
+  const processedEventIdsRef = useRef(new Set())
+  const pendingCandidatesRef = useRef([])
+  const [busy, setBusy] = useState(false)
+  const [callStarted, setCallStarted] = useState(false)
+  const [remoteConnected, setRemoteConnected] = useState(false)
+  const [muted, setMuted] = useState(false)
+  const [cameraEnabled, setCameraEnabled] = useState(true)
+  const [rtcConfiguration, setRtcConfiguration] = useState(DEFAULT_RTC_CONFIGURATION)
 
-  const startAudioConsult = () => {
-    if (!doctorConsentAccepted || !roomReady) return
-    if (String(consult?.status || '').toLowerCase() === 'scheduled') {
-      updateRemoteConsultStatus?.('in_progress')
+  const teardownCall = useCallback((message = '') => {
+    if (peerRef.current) {
+      try {
+        peerRef.current.ontrack = null
+        peerRef.current.onicecandidate = null
+        peerRef.current.onconnectionstatechange = null
+        peerRef.current.close()
+      } catch {
+        // ignore close issues
+      }
+      peerRef.current = null
     }
-    setCallStatus('Audio consult marked in progress. Call the patient directly on the listed number.')
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach((track) => track.stop())
+      localStreamRef.current = null
+    }
+    remoteStreamRef.current = null
+    pendingCandidatesRef.current = []
+    setBusy(false)
+    setCallStarted(false)
+    setRemoteConnected(false)
+    setMuted(false)
+    setCameraEnabled(true)
+    if (message) setCallStatus(message)
+  }, [])
+
+  useEffect(() => () => teardownCall(''), [teardownCall])
+
+  useEffect(() => {
+    if (!authToken) return undefined
+    let cancelled = false
+    const loadRtcConfiguration = async () => {
+      try {
+        const response = await fetch(`${apiBase}/api/teleconsults/rtc-config`, {
+          headers: { Authorization: `Bearer ${authToken}` },
+        })
+        const data = await response.json().catch(() => ({}))
+        if (!response.ok || cancelled) return
+        if (Array.isArray(data?.iceServers) && data.iceServers.length) {
+          setRtcConfiguration({
+            iceServers: data.iceServers,
+            ...(data?.iceTransportPolicy ? { iceTransportPolicy: data.iceTransportPolicy } : {}),
+          })
+        }
+      } catch {
+        // keep default STUN config as fallback
+      }
+    }
+    loadRtcConfiguration()
+    return () => {
+      cancelled = true
+    }
+  }, [apiBase, authToken])
+
+  useEffect(() => {
+    if (localMediaRef.current) {
+      localMediaRef.current.srcObject = localStreamRef.current || null
+    }
+  }, [callStarted, muted, cameraEnabled])
+
+  useEffect(() => {
+    if (remoteMediaRef.current) {
+      remoteMediaRef.current.srcObject = remoteStreamRef.current || null
+    }
+  }, [remoteConnected])
+
+  const postCallEvent = useCallback(
+    async (eventType, payload = null) => {
+      const response = await fetch(`${apiBase}/api/teleconsults/${consult.id}/call-events`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({ sessionId, eventType, payload }),
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new Error(data.error || 'Unable to update the live consult channel.')
+      }
+      return data.event
+    },
+    [apiBase, authToken, consult?.id, sessionId],
+  )
+
+  const ensurePeer = useCallback(async () => {
+    if (peerRef.current) return peerRef.current
+    const peer = new RTCPeerConnection(rtcConfiguration)
+    const remoteStream = new MediaStream()
+    remoteStreamRef.current = remoteStream
+    if (remoteMediaRef.current) remoteMediaRef.current.srcObject = remoteStream
+    peer.ontrack = (event) => {
+      event.streams?.[0]?.getTracks?.().forEach((track) => remoteStream.addTrack(track))
+      if (!event.streams?.[0] && event.track) {
+        remoteStream.addTrack(event.track)
+      }
+      setRemoteConnected(true)
+      setCallStatus(`${consultMode === 'video' ? 'Video' : 'Audio'} consult connected.`)
+    }
+    peer.onicecandidate = (event) => {
+      if (event.candidate) {
+        postCallEvent('candidate', serializeIceCandidate(event.candidate)).catch((error) => {
+          setCallStatus(error.message || 'Unable to send network details for the live consult.')
+        })
+      }
+    }
+    peer.onconnectionstatechange = () => {
+      const state = String(peer.connectionState || '')
+      if (state === 'connected') {
+        setRemoteConnected(true)
+        setCallStatus(`${consultMode === 'video' ? 'Video' : 'Audio'} consult connected.`)
+      } else if (['failed', 'disconnected'].includes(state)) {
+        setCallStatus(`The ${consultMode} connection was interrupted. Retry if needed.`)
+      } else if (state === 'closed') {
+        setCallStatus(`${consultMode === 'video' ? 'Video' : 'Audio'} consult ended.`)
+      }
+    }
+    peerRef.current = peer
+    return peer
+  }, [consultMode, postCallEvent, rtcConfiguration])
+
+  const flushPendingCandidates = useCallback(async () => {
+    const peer = peerRef.current
+    if (!peer?.remoteDescription) return
+    const candidates = [...pendingCandidatesRef.current]
+    pendingCandidatesRef.current = []
+    for (const candidate of candidates) {
+      try {
+        await peer.addIceCandidate(candidate)
+      } catch {
+        // ignore candidate race conditions
+      }
+    }
+  }, [])
+
+  const handleIncomingEvent = useCallback(
+    async (event) => {
+      if (!event || processedEventIdsRef.current.has(event.id)) return
+      processedEventIdsRef.current.add(event.id)
+      lastEventIdRef.current = Math.max(lastEventIdRef.current, Number(event.id) || 0)
+      if (Number(event.senderUserId) === Number(currentUserId)) return
+      if (String(event.sessionId || '') !== sessionId) return
+
+      if (event.eventType === 'answer') {
+        const peer = peerRef.current
+        if (!peer) return
+        await peer.setRemoteDescription(event.payload)
+        await flushPendingCandidates()
+        setCallStatus(`Connecting ${consultMode} consult...`)
+        return
+      }
+
+      if (event.eventType === 'candidate') {
+        const candidate = new RTCIceCandidate(event.payload)
+        const peer = peerRef.current
+        if (!peer?.remoteDescription) {
+          pendingCandidatesRef.current.push(candidate)
+          return
+        }
+        try {
+          await peer.addIceCandidate(candidate)
+        } catch {
+          // ignore candidate race conditions
+        }
+        return
+      }
+
+      if (event.eventType === 'ended') {
+        teardownCall(`The patient ended the ${consultMode} consult.`)
+      }
+    },
+    [consultMode, currentUserId, flushPendingCandidates, sessionId, teardownCall],
+  )
+
+  useEffect(() => {
+    if (!authToken || !consult?.id || !['audio', 'video'].includes(consultMode)) return undefined
+    let cancelled = false
+    const loadEvents = async () => {
+      try {
+        const response = await fetch(
+          `${apiBase}/api/teleconsults/${consult.id}/call-events?afterId=${encodeURIComponent(lastEventIdRef.current)}`,
+          { headers: { Authorization: `Bearer ${authToken}` } },
+        )
+        const data = await response.json().catch(() => ({}))
+        if (!response.ok || cancelled) return
+        for (const event of data.events || []) {
+          await handleIncomingEvent(event)
+        }
+      } catch {
+        if (!cancelled) {
+          setCallStatus((prev) => prev || `Live ${consultMode} updates were interrupted. Retry if needed.`)
+        }
+      }
+    }
+    loadEvents()
+    const interval = window.setInterval(loadEvents, 1500)
+    return () => {
+      cancelled = true
+      window.clearInterval(interval)
+    }
+  }, [apiBase, authToken, consult?.id, consultMode, handleIncomingEvent])
+
+  const beginConsultSession = useCallback(async () => {
+    if (!roomUnlocked || busy) return
+    setBusy(true)
+    try {
+      if (String(consult?.status || '').toLowerCase() === 'scheduled') {
+        await updateRemoteConsultStatus?.('in_progress')
+      }
+      const localStream =
+        localStreamRef.current ||
+        (await requestUserMedia({
+          audio: true,
+          video: isVideo,
+        }))
+      localStreamRef.current = localStream
+      if (localMediaRef.current) {
+        localMediaRef.current.srcObject = localStream
+      }
+      const peer = await ensurePeer()
+      if (!peer.getSenders().length) {
+        localStream.getTracks().forEach((track) => peer.addTrack(track, localStream))
+      }
+      const offer = await peer.createOffer()
+      await peer.setLocalDescription(offer)
+      await postCallEvent('offer', serializeSessionDescription(offer))
+      setCallStarted(true)
+      setCallStatus(`Calling patient over ${consultMode}...`)
+    } catch (error) {
+      setCallStatus(error?.message || `Unable to start ${consultMode} consult.`)
+    } finally {
+      setBusy(false)
+    }
+  }, [busy, consult, consultMode, ensurePeer, isVideo, postCallEvent, roomUnlocked, updateRemoteConsultStatus])
+
+  const startConsult = async () => {
+    if (!roomUnlocked || busy) return
+    if (isVideo && !standaloneLiveMode) {
+      openStandaloneLiveConsult?.(consult)
+      setCallStatus('Video consult opened in a separate tab. Continue documenting here.')
+      return
+    }
+    await beginConsultSession()
+  }
+
+  useEffect(() => {
+    if (!standaloneLiveMode || !autoStartStandalone || !isVideo) return
+    if (!roomUnlocked || callStarted || busy) return
+    void beginConsultSession()
+  }, [autoStartStandalone, beginConsultSession, busy, callStarted, isVideo, roomUnlocked, standaloneLiveMode])
+
+  const endCall = async () => {
+    try {
+      if (callStarted) {
+        await postCallEvent('ended')
+      }
+    } catch {
+      // ignore end-call transport errors
+    } finally {
+      teardownCall(`${consultMode === 'video' ? 'Video' : 'Audio'} consult ended.`)
+      if (standaloneLiveMode) {
+        window.setTimeout(() => {
+          try {
+            window.close()
+          } catch {
+            // ignore close-window failures
+          }
+        }, 160)
+      }
+    }
+  }
+
+  const toggleMute = () => {
+    const nextMuted = !muted
+    localStreamRef.current?.getAudioTracks?.().forEach((track) => {
+      track.enabled = !nextMuted
+    })
+    setMuted(nextMuted)
+  }
+
+  const toggleCamera = () => {
+    const nextEnabled = !cameraEnabled
+    localStreamRef.current?.getVideoTracks?.().forEach((track) => {
+      track.enabled = nextEnabled
+    })
+    setCameraEnabled(nextEnabled)
+  }
+
+  if (isVideo && !standaloneLiveMode) {
+    return (
+      <div className="doctor-workspace-card doctor-media-panel doctor-media-launcher">
+        <div className="section-head compact doctor-media-panel-head">
+          <div>
+            <p className="micro strong">Video consult</p>
+            <p className="micro">Open the live consult in a separate window, then continue documenting here.</p>
+          </div>
+        </div>
+        <p className="micro">{callStatus}</p>
+        <div className="action-row doctor-console-actions doctor-media-actions">
+          <button className="primary" type="button" onClick={startConsult} disabled={!roomUnlocked || busy}>
+            {busy ? 'Preparing...' : 'Start video'}
+          </button>
+        </div>
+        {!roomUnlocked ? <p className="micro">Acknowledge the teleconsult notice and keep the consult scheduled to unlock live video.</p> : null}
+      </div>
+    )
   }
 
   return (
-    <div className="doctor-workspace-card">
-      <div className="section-head compact">
+    <div className="doctor-workspace-card doctor-media-panel">
+      <div className="section-head compact doctor-media-panel-head">
         <div>
-          <p className="micro strong">Audio consult</p>
-          <p className="micro">Use the saved phone number and call the patient directly. Keep notes, prescriptions, and orders in this console.</p>
+          <p className="micro strong">{consultMode === 'video' ? 'Video consult' : 'Audio consult'}</p>
+          <p className="micro">Start the live consult here and continue documenting in the same console while the patient stays on screen.</p>
         </div>
       </div>
-      <p className="micro">{callStatus}</p>
-      <div className="doctor-summary-side-list" style={{ marginBottom: 12 }}>
+      <div className="doctor-media-meta">
         <div>
           <span className="mini-label">Patient phone</span>
           <strong>{consult?.phone || 'Phone number not added'}</strong>
         </div>
+        <div>
+          <span className="mini-label">Live channel</span>
+          <strong>{callStarted ? 'Active' : 'Standby'}</strong>
+        </div>
       </div>
-      <div className="action-row doctor-console-actions">
-        <button className="primary" type="button" onClick={startAudioConsult} disabled={!doctorConsentAccepted || !roomReady}>
-          Mark audio in progress
+      <p className="micro">{callStatus}</p>
+      {!roomUnlocked ? <p className="micro">Acknowledge the teleconsult notice and keep the consult scheduled to unlock live {consultMode}.</p> : null}
+      {isVideo ? (
+        <div className="doctor-media-stage doctor-media-stage-video">
+          <div className="history-card subtle doctor-media-patient-stage">
+            <div className="doctor-media-tile-head">
+              <p className="micro strong">Patient</p>
+              <span className={`doctor-media-badge ${remoteConnected ? 'is-live' : ''}`}>
+                {remoteConnected ? 'Live' : 'Waiting'}
+              </span>
+            </div>
+            <video
+              ref={remoteMediaRef}
+              autoPlay
+              playsInline
+              className="doctor-media-video doctor-media-video-primary"
+            />
+            <div className="doctor-media-overlay">
+              <div className="doctor-media-overlay-head">
+                <p className="micro strong">Doctor</p>
+                <span className="doctor-media-badge">You</span>
+              </div>
+              <video
+                ref={localMediaRef}
+                autoPlay
+                muted
+                playsInline
+                className="doctor-media-video doctor-media-video-overlay"
+              />
+            </div>
+            <p className="micro">
+              {remoteConnected ? 'Patient connected.' : 'Once the patient joins, their live stream will appear here.'}
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="doctor-media-stage">
+          <div className="history-card subtle doctor-media-tile">
+            <div className="doctor-media-tile-head">
+              <p className="micro strong">Doctor</p>
+              <span className="doctor-media-badge">You</span>
+            </div>
+            <audio ref={localMediaRef} autoPlay muted />
+            {!callStarted ? <p className="micro">Your audio channel appears here as soon as you start.</p> : null}
+          </div>
+          <div className="history-card subtle doctor-media-tile">
+            <div className="doctor-media-tile-head">
+              <p className="micro strong">Patient</p>
+              <span className={`doctor-media-badge ${remoteConnected ? 'is-live' : ''}`}>
+                {remoteConnected ? 'Live' : 'Waiting'}
+              </span>
+            </div>
+            <audio ref={remoteMediaRef} autoPlay playsInline controls={false} />
+            <p className="micro" style={{ marginTop: 12 }}>
+              {remoteConnected ? 'Patient connected.' : 'Once the patient joins, their live audio will appear here.'}
+            </p>
+          </div>
+        </div>
+      )}
+      <div className="action-row doctor-console-actions doctor-media-actions">
+        <button className="primary" type="button" onClick={startConsult} disabled={!roomUnlocked || busy}>
+          {busy ? 'Preparing...' : `Start ${consultMode === 'video' ? 'video' : 'audio'}`}
+        </button>
+        <button className="secondary" type="button" onClick={toggleMute} disabled={!callStarted}>
+          {muted ? 'Unmute' : 'Mute'}
+        </button>
+        {isVideo ? (
+          <button className="ghost" type="button" onClick={toggleCamera} disabled={!callStarted}>
+            {cameraEnabled ? 'Camera off' : 'Camera on'}
+          </button>
+        ) : null}
+        <button className="ghost" type="button" onClick={endCall} disabled={busy || (!callStarted && !standaloneLiveMode)}>
+          End call
         </button>
       </div>
     </div>
@@ -432,19 +871,24 @@ export function DoctorConsoleWorkspace({
   reportInsightsStatus,
   reportInsightsMonths,
   setReportInsightsMonths,
+  apiBase,
+  authToken,
+  currentUserId,
   isRemoteConsult = false,
   remoteConsultConsentSummary = null,
   acceptRemoteConsultConsent,
   remoteConsultMessages = [],
-  remoteConsultCallEvents = [],
   remoteConsultMessageText = '',
   setRemoteConsultMessageText,
   sendRemoteConsultMessage,
-  sendRemoteConsultCallEvent,
   remoteConsultMessageStatus = '',
   updateRemoteConsultStatus,
+  openStandaloneLiveConsult,
+  forceActiveTab = '',
+  standaloneLiveMode = false,
+  autoStartStandalone = false,
 }) {
-  const [activeTab, setActiveTab] = useState('summary')
+  const [activeTab, setActiveTab] = useState(forceActiveTab || 'summary')
   const [reportViewMode, setReportViewMode] = useState('condition')
   const [collapsedReportPanels, setCollapsedReportPanels] = useState({})
   const [showPediatricTracker, setShowPediatricTracker] = useState(false)
@@ -458,6 +902,12 @@ export function DoctorConsoleWorkspace({
   const consoleCopy = getConsoleCopy(consoleKind)
   const printLabel = consoleKind === 'surgery' ? 'Print case sheet' : consoleKind === 'pediatrics' ? 'Print visit summary' : 'Print consult summary'
   const currentAppointmentStatus = String(activeConsultAppointment?.status || '').toLowerCase()
+
+  useEffect(() => {
+    if (forceActiveTab) {
+      setActiveTab(forceActiveTab)
+    }
+  }, [forceActiveTab])
   const doctorStatusActions =
     isRemoteConsult
       ? currentAppointmentStatus === 'requested'
@@ -510,6 +960,7 @@ export function DoctorConsoleWorkspace({
   const doctorConsentAccepted = Boolean(remoteConsultConsentSummary?.doctorAccepted)
   const remoteConsultMode = String(activeConsultAppointment?.mode || '').toLowerCase()
   const isAudioRemoteConsult = isRemoteConsult && remoteConsultMode === 'audio'
+  const isVideoRemoteConsult = isRemoteConsult && remoteConsultMode === 'video'
   const isChatRemoteConsult = isRemoteConsult && remoteConsultMode === 'chat'
   const visibleNoteAssistSuggestions = (noteAssistSuggestions || []).filter(
     (item) => !dismissedNoteAssistIds?.includes(item.id),
@@ -663,6 +1114,7 @@ export function DoctorConsoleWorkspace({
   )
   const doctorTabConfig = [
     ...(isAudioRemoteConsult ? [{ key: 'audio', label: 'Audio', count: 1 }] : []),
+    ...(isVideoRemoteConsult ? [{ key: 'video', label: 'Video', count: 1 }] : []),
     ...(isRemoteConsult ? [{ key: 'chat', label: 'Chat', count: remoteConsultMessages.length || 0 }] : []),
     { key: 'summary', label: 'Summary', count: encounter ? 1 : 0 },
     ...(consoleKind === 'pediatrics'
@@ -683,7 +1135,7 @@ export function DoctorConsoleWorkspace({
     { key: 'reportInsights', label: 'Report insights', count: reportInsights?.trends?.length || 0 },
   ]
   useEffect(() => {
-    if (!isRemoteConsult && ['chat', 'audio'].includes(activeTab)) {
+    if (!isRemoteConsult && ['chat', 'audio', 'video'].includes(activeTab)) {
       setActiveTab('summary')
     }
   }, [isRemoteConsult, activeTab])
@@ -692,7 +1144,19 @@ export function DoctorConsoleWorkspace({
     if (!isAudioRemoteConsult && activeTab === 'audio') {
       setActiveTab(isRemoteConsult ? 'chat' : 'summary')
     }
-  }, [isAudioRemoteConsult, isRemoteConsult, activeTab])
+    if (!isVideoRemoteConsult && activeTab === 'video') {
+      setActiveTab(isRemoteConsult ? 'chat' : 'summary')
+    }
+  }, [isAudioRemoteConsult, isVideoRemoteConsult, isRemoteConsult, activeTab])
+
+  useEffect(() => {
+    if (!standaloneLiveMode || !activeConsultAppointment) return undefined
+    const previousTitle = document.title
+    document.title = `${activeConsultAppointment.patient_name || 'Patient'} ${String(activeConsultAppointment.mode || 'video').toUpperCase()} consult`
+    return () => {
+      document.title = previousTitle
+    }
+  }, [activeConsultAppointment, standaloneLiveMode])
   const clearManualVaccineDraft = () =>
     setManualVaccineDraft({
       code: '',
@@ -974,6 +1438,54 @@ export function DoctorConsoleWorkspace({
     clearManualVaccineDraft()
   }
 
+  if (standaloneLiveMode && activeConsultAppointment && (isAudioRemoteConsult || isVideoRemoteConsult)) {
+    return (
+      <section className="doctor-live-window">
+        <div className="doctor-live-window-header">
+          <div>
+            <p className="eyebrow">{isVideoRemoteConsult ? 'Live video consult' : 'Live audio consult'}</p>
+            <h2>{activeConsultAppointment.patient_name || 'Patient'}</h2>
+            <p className="doctor-live-window-subtitle">
+              {activeConsultAppointment.department_name || activeConsultAppointment.department || '-'} •{' '}
+              {new Date(activeConsultAppointment.scheduled_at).toLocaleString()}
+            </p>
+          </div>
+          <div className="doctor-live-window-actions">
+            <span className={`status-pill ${String(activeConsultAppointment.status || '').replace(/\s+/g, '_')}`}>
+              {formatStatus(activeConsultAppointment.status)}
+            </span>
+            <button className="secondary" type="button" onClick={() => window.close()}>
+              Close window
+            </button>
+          </div>
+        </div>
+
+        {!doctorConsentAccepted ? (
+          <div className="doctor-console-banner subtle doctor-live-window-banner">
+            Acknowledge the teleconsult notice before starting the live consult.
+            <div className="action-row">
+              <button className="secondary" type="button" onClick={acceptRemoteConsultConsent}>
+                Acknowledge teleconsult
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        <DoctorMediaConsultPanel
+          consult={activeConsultAppointment}
+          apiBase={apiBase}
+          authToken={authToken}
+          currentUserId={currentUserId}
+          doctorConsentAccepted={doctorConsentAccepted}
+          updateRemoteConsultStatus={updateRemoteConsultStatus}
+          openStandaloneLiveConsult={openStandaloneLiveConsult}
+          standaloneLiveMode={standaloneLiveMode}
+          autoStartStandalone={autoStartStandalone}
+        />
+      </section>
+    )
+  }
+
   return (
     <section className="doctor-console-shell-wide">
       <div className="panel doctor-console-surface">
@@ -1048,10 +1560,6 @@ export function DoctorConsoleWorkspace({
                   <strong>{new Date(activeConsultAppointment.scheduled_at).toLocaleString()}</strong>
                 </div>
                 <div className="doctor-fact-chip">
-                  <span className="mini-label">Encounter</span>
-                  <strong>{encounter ? `#${encounter.id}` : 'Preparing...'}</strong>
-                </div>
-                <div className="doctor-fact-chip">
                   <span className="mini-label">History</span>
                   <strong>{priorHistory.length} visits</strong>
                 </div>
@@ -1105,13 +1613,43 @@ export function DoctorConsoleWorkspace({
                     </div>
                   </div>
                 ) : null}
-                <DoctorAudioConsultPanel
-                  consult={activeConsultAppointment}
-                  remoteConsultCallEvents={remoteConsultCallEvents}
-                  sendRemoteConsultCallEvent={sendRemoteConsultCallEvent}
-                  doctorConsentAccepted={doctorConsentAccepted}
-                  updateRemoteConsultStatus={updateRemoteConsultStatus}
-                />
+                  <DoctorMediaConsultPanel
+                    consult={activeConsultAppointment}
+                    apiBase={apiBase}
+                    authToken={authToken}
+                    currentUserId={currentUserId}
+                    doctorConsentAccepted={doctorConsentAccepted}
+                    updateRemoteConsultStatus={updateRemoteConsultStatus}
+                    openStandaloneLiveConsult={openStandaloneLiveConsult}
+                    standaloneLiveMode={standaloneLiveMode}
+                    autoStartStandalone={autoStartStandalone}
+                  />
+              </div>
+            ) : null}
+
+            {activeTab === 'video' && isVideoRemoteConsult ? (
+              <div className="doctor-console-tabpanel doctor-console-tabpanel-wide">
+                {!doctorConsentAccepted ? (
+                  <div className="doctor-console-banner subtle">
+                    Acknowledge the remote consult notice before starting video.
+                    <div className="action-row">
+                      <button className="secondary" type="button" onClick={acceptRemoteConsultConsent}>
+                        Acknowledge teleconsult
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+                  <DoctorMediaConsultPanel
+                    consult={activeConsultAppointment}
+                    apiBase={apiBase}
+                    authToken={authToken}
+                    currentUserId={currentUserId}
+                    doctorConsentAccepted={doctorConsentAccepted}
+                    updateRemoteConsultStatus={updateRemoteConsultStatus}
+                    openStandaloneLiveConsult={openStandaloneLiveConsult}
+                    standaloneLiveMode={standaloneLiveMode}
+                    autoStartStandalone={autoStartStandalone}
+                  />
               </div>
             ) : null}
 
@@ -1550,127 +2088,142 @@ export function DoctorConsoleWorkspace({
               <div className="doctor-console-tabpanel doctor-console-tabpanel-wide">
                 <div className="doctor-console-two-col">
                   <div className="doctor-workspace-card">
-                    <div className="section-head compact">
+                    <div className="doctor-note-header">
                       <div>
                         <p className="micro strong">Doctor note</p>
-                        <p className="micro">Capture assessment and signed note for this consult.</p>
+                        <h3 className="doctor-note-title">Clinical drafting workspace</h3>
+                        <p className="micro">Capture the encounter note, polish the wording, and sign it cleanly before saving to the record.</p>
+                      </div>
+                      <div className="doctor-note-header-badge">
+                        <span className="doctor-note-header-badge-label">Draft status</span>
+                        <strong>{String(noteDraft || '').trim() ? 'In progress' : 'Ready to start'}</strong>
                       </div>
                     </div>
-                    <div className="doctor-note-assist-panel">
-                      <div className="section-head compact">
+                    <DoctorAssistPanel
+                      title={
+                        consoleKind === 'pediatrics'
+                          ? 'Pediatric clinic assist'
+                          : consoleKind === 'surgery'
+                            ? 'Surgical OPD assist'
+                            : 'Clinical template assist'
+                      }
+                      subtitle={
+                        consoleKind === 'pediatrics'
+                          ? 'Use child-visit templates for fever, wheeze, growth, nutrition, abdominal pain, vaccine review, and caregiver-facing note drafting.'
+                          : consoleKind === 'surgery'
+                            ? 'Use surgical OPD templates for post-op review, wound care, acute abdomen, hernia, piles/fissure, and sharper procedure-facing notes.'
+                            : 'Use Indian OPD-style templates to fill complaint structure, working diagnoses, likely tests, medicine drafts, and a clean note in one flow.'
+                      }
+                      departmentKey={consoleKind}
+                      noteAssistQuery={noteAssistQuery}
+                      setNoteAssistQuery={setNoteAssistQuery}
+                      noteAssistSuggestions={visibleNoteAssistSuggestions}
+                      noteAssistStatus={noteAssistStatus}
+                      noteAssistLoading={noteAssistLoading}
+                      loadNoteAssistSuggestions={loadNoteAssistSuggestions}
+                      applyNoteAssistSuggestion={applyNoteAssistSuggestion}
+                      applyAssistComplaintTemplate={applyAssistComplaintTemplate}
+                      applyAssistDiagnosisSuggestion={applyAssistDiagnosisSuggestion}
+                      stageAssistOrderSuggestion={stageAssistOrderSuggestion}
+                      applyAssistPrescriptionTemplate={applyAssistPrescriptionTemplate}
+                      dismissNoteAssistSuggestion={dismissNoteAssistSuggestion}
+                    />
+                    <div className="doctor-note-editor-card">
+                      <div className="doctor-note-editor-head">
                         <div>
-                          <p className="micro strong">Symptom assist</p>
-                          <p className="micro">Type symptoms or shorthand and get structured complaint templates, note drafts, diagnosis suggestions, and likely tests in one place.</p>
+                          <p className="micro strong">Clinical note</p>
+                          <p className="micro">Write or apply a structured draft, then use the polish tools only if you want to tighten the language.</p>
                         </div>
+                        <span className="doctor-note-wordcount">
+                          {String(noteDraft || '').trim()
+                            ? `${String(noteDraft || '').trim().split(/\s+/).filter(Boolean).length} words`
+                            : 'No draft yet'}
+                        </span>
                       </div>
-                      <div className="doctor-note-assist-search">
-                        <input
-                          type="text"
-                          value={noteAssistQuery}
-                          onChange={(event) => setNoteAssistQuery(event.target.value)}
-                          placeholder="Try: jaundice, fever 3 days, post-op dressing stable..."
+                      <label className="doctor-note-editor-field">
+                        <span className="micro strong">Clinical note</span>
+                        <textarea
+                          rows={14}
+                          value={noteDraft}
+                          onChange={(event) => setNoteDraft(event.target.value)}
+                          placeholder="Clinical assessment, important findings, working impression, counselling, and follow-up plan..."
                         />
-                        <button
-                          className="ghost"
-                          type="button"
-                          onClick={() => loadNoteAssistSuggestions(noteAssistQuery)}
-                          disabled={noteAssistLoading || String(noteAssistQuery || '').trim().length < 2}
-                        >
-                          {noteAssistLoading ? 'Suggesting…' : 'Suggest'}
-                        </button>
-                      </div>
-                      {noteAssistStatus ? <p className="micro doctor-note-assist-status">{noteAssistStatus}</p> : null}
-                      {visibleNoteAssistSuggestions.length ? (
-                        <div className="doctor-note-assist-list">
-                          {visibleNoteAssistSuggestions.map((suggestion) => (
-                            <div key={suggestion.id} className="doctor-note-assist-card">
-                              <div className="doctor-note-assist-meta">
-                                <div>
-                                  <p className="micro strong">{suggestion.label}</p>
-                                  {suggestion.reason ? <p className="micro">{suggestion.reason}</p> : null}
-                                </div>
-                                <span className="doctor-note-assist-score">{Math.round((suggestion.score || 0) * 100)}%</span>
-                              </div>
-                              <p className="doctor-note-assist-preview">{suggestion.noteText}</p>
-                              <div className="action-row doctor-note-assist-actions">
-                                <button type="button" className="ghost" onClick={() => applyNoteAssistSuggestion(suggestion)}>
-                                  Use note
-                                </button>
-                                <button type="button" className="ghost" onClick={() => applyNoteAssistSuggestion(suggestion, { applySummary: true })}>
-                                  Use note + summary
-                                </button>
-                                <button type="button" className="secondary" onClick={() => dismissNoteAssistSuggestion(suggestion.id)}>
-                                  Dismiss
-                                </button>
-                              </div>
-                            </div>
-                          ))}
+                      </label>
+                      <div className="doctor-note-refine-bar">
+                        <div>
+                          <p className="micro strong">Refine current draft</p>
+                          <p className="micro">Choose the tone you want without changing the clinical meaning.</p>
                         </div>
-                      ) : null}
-                    </div>
-                    <label>
-                      Clinical note
-                      <textarea rows={14} value={noteDraft} onChange={(event) => setNoteDraft(event.target.value)} />
-                    </label>
-                    <div className="doctor-note-refine-bar">
-                      <div>
-                        <p className="micro strong">Refine current draft</p>
-                        <p className="micro">Polish the current note into a cleaner clinical, concise, or caregiver-friendly version.</p>
+                        <div className="action-row doctor-note-refine-actions">
+                          <button
+                            type="button"
+                            className="ghost"
+                            disabled={noteRefineLoading || !String(noteDraft || '').trim()}
+                            onClick={() => refineDoctorNoteDraft('clinical')}
+                          >
+                            {noteRefineLoading ? 'Refining…' : 'Clinical polish'}
+                          </button>
+                          <button
+                            type="button"
+                            className="ghost"
+                            disabled={noteRefineLoading || !String(noteDraft || '').trim()}
+                            onClick={() => refineDoctorNoteDraft('concise')}
+                          >
+                            Concise
+                          </button>
+                          <button
+                            type="button"
+                            className="ghost"
+                            disabled={noteRefineLoading || !String(noteDraft || '').trim()}
+                            onClick={() => refineDoctorNoteDraft('caregiver')}
+                          >
+                            {consoleKind === 'pediatrics' ? 'Caregiver-friendly' : 'Patient-friendly'}
+                          </button>
+                        </div>
                       </div>
-                      <div className="action-row doctor-note-refine-actions">
-                        <button
-                          type="button"
-                          className="ghost"
-                          disabled={noteRefineLoading || !String(noteDraft || '').trim()}
-                          onClick={() => refineDoctorNoteDraft('clinical')}
-                        >
-                          {noteRefineLoading ? 'Refining…' : 'Clinical polish'}
-                        </button>
-                        <button
-                          type="button"
-                          className="ghost"
-                          disabled={noteRefineLoading || !String(noteDraft || '').trim()}
-                          onClick={() => refineDoctorNoteDraft('concise')}
-                        >
-                          Concise
-                        </button>
-                        <button
-                          type="button"
-                          className="ghost"
-                          disabled={noteRefineLoading || !String(noteDraft || '').trim()}
-                          onClick={() => refineDoctorNoteDraft('caregiver')}
-                        >
-                          {consoleKind === 'pediatrics' ? 'Caregiver-friendly' : 'Patient-friendly'}
-                        </button>
+                      {noteRefineStatus ? <p className="micro doctor-note-assist-status doctor-note-refine-feedback">{noteRefineStatus}</p> : null}
+                      <div className="doctor-note-footer">
+                        <label className="doctor-note-signature">
+                          <span className="micro strong">Signature</span>
+                          <input type="text" value={signatureDraft} onChange={(event) => setSignatureDraft(event.target.value)} placeholder="Signed by Dr..." />
+                        </label>
+                        <div className="action-row doctor-console-actions doctor-note-savebar">
+                          <button className="primary" type="button" onClick={submitEncounterNote}>Save doctor note</button>
+                        </div>
                       </div>
-                    </div>
-                    {noteRefineStatus ? <p className="micro doctor-note-assist-status">{noteRefineStatus}</p> : null}
-                    <label>
-                      Signature
-                      <input type="text" value={signatureDraft} onChange={(event) => setSignatureDraft(event.target.value)} placeholder="Signed by Dr..." />
-                    </label>
-                    <div className="action-row doctor-console-actions">
-                      <button className="primary" type="button" onClick={submitEncounterNote}>Add note</button>
                     </div>
                   </div>
-                  <div className="doctor-workspace-card">
-                    <div className="section-head compact">
+                  <div className="doctor-workspace-card doctor-notes-history-card">
+                    <div className="doctor-note-header doctor-note-header-secondary">
                       <div>
                         <p className="micro strong">Existing notes</p>
-                        <p className="micro">Most recent consult notes for this encounter.</p>
+                        <h3 className="doctor-note-title">Saved encounter notes</h3>
+                        <p className="micro">Review the latest signed note entries for this consult without leaving the drafting workspace.</p>
+                      </div>
+                      <div className="doctor-note-header-badge">
+                        <span className="doctor-note-header-badge-label">Saved</span>
+                        <strong>{notes.length} {notes.length === 1 ? 'note' : 'notes'}</strong>
                       </div>
                     </div>
                     <div className="history-list doctor-history-list">
                       {notes.map((item) => (
-                        <div key={`note-${item.id}`} className="history-card doctor-history-row">
+                        <div key={`note-${item.id}`} className="history-card doctor-history-row doctor-history-row-elevated">
+                          <div className="doctor-history-entry-head">
+                            <span className="doctor-history-entry-badge">Signed note</span>
+                            <span className="doctor-history-entry-time">{new Date(item.created_at).toLocaleString()}</span>
+                          </div>
                           <p className="micro doctor-history-note">{item.note_text}</p>
                           <div className="doctor-history-meta">
                             <span>{item.signature_text || 'Unsigned'}</span>
-                            <span>{new Date(item.created_at).toLocaleString()}</span>
                           </div>
                         </div>
                       ))}
-                      {notes.length === 0 ? <p className="micro">No doctor notes added yet.</p> : null}
+                      {notes.length === 0 ? (
+                        <div className="doctor-history-empty">
+                          <p className="micro strong">No signed notes yet</p>
+                          <p className="micro">The first saved doctor note for this consult will appear here.</p>
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                 </div>

@@ -25,10 +25,54 @@ const registerPatientRoutes = (fastify, deps) => {
     incrementMetric,
     metricDate,
     createPublicId,
+    enqueueAndDeliverUserNotification,
   } = deps;
   const reportCatalog = listReportCatalog();
   const reportTypeKeys = new Set(reportCatalog.map((item) => item.key));
   const reportCatalogMap = new Map(reportCatalog.map((item) => [item.key, item]));
+  const ABHA_ADDRESS_PATTERN = /^[a-z0-9][a-z0-9._-]{1,98}@[a-z][a-z0-9._-]{1,48}$/i;
+
+  const normalizeAbhaNumber = (value = "") => String(value || "").replace(/\D/g, "");
+  const normalizeAbhaAddress = (value = "") => String(value || "").trim().toLowerCase();
+  const validateAbhaIdentity = ({ abhaNumber = "", abhaAddress = "" }) => {
+    const normalizedNumber = normalizeAbhaNumber(abhaNumber);
+    const normalizedAddress = normalizeAbhaAddress(abhaAddress);
+    if (normalizedNumber && normalizedNumber.length !== 14) {
+      return { ok: false, error: "ABHA number must be 14 digits." };
+    }
+    if (normalizedAddress && !ABHA_ADDRESS_PATTERN.test(normalizedAddress)) {
+      return { ok: false, error: "ABHA address must look like name@abdm." };
+    }
+    return {
+      ok: true,
+      normalizedNumber,
+      normalizedAddress,
+    };
+  };
+
+  const findConflictingAbhaIdentity = async ({ userId, abhaNumber = "", abhaAddress = "" }) => {
+    const conditions = [];
+    const params = [Number(userId)];
+    if (abhaNumber) {
+      conditions.push("p.abha_number = ?");
+      params.push(abhaNumber);
+    }
+    if (abhaAddress) {
+      conditions.push("lower(COALESCE(p.abha_address, '')) = ?");
+      params.push(abhaAddress);
+    }
+    if (!conditions.length) return null;
+    return get(
+      `SELECT u.id, u.name, u.patient_uid, p.abha_number, p.abha_address, p.abha_status
+       FROM profiles p
+       JOIN users u ON u.id = p.user_id
+       WHERE u.id != ?
+         AND u.role = 'patient'
+         AND (${conditions.join(" OR ")})
+       LIMIT 1`,
+      params,
+    );
+  };
 
   const loadCombinedAnalyses = async ({ userId, memberId = null }) => {
     const analyses = await all(
@@ -1168,6 +1212,350 @@ const registerPatientRoutes = (fastify, deps) => {
     return { profile };
   });
 
+  fastify.get("/api/abha/history", async (request, reply) => {
+    if (!requireAuth(request, reply)) return;
+    const rows = await all(
+      `SELECT id, abha_number, abha_address, action, status, source, notes, payload_json, created_at
+       FROM abha_link_events
+       WHERE user_id = ?
+       ORDER BY created_at DESC, id DESC
+       LIMIT 20`,
+      [request.authUser.id],
+    );
+    return {
+      history: rows.map((row) => ({
+        id: row.id,
+        abhaNumber: row.abha_number || "",
+        abhaAddress: row.abha_address || "",
+        action: row.action,
+        status: row.status,
+        source: row.source || "",
+        notes: row.notes || "",
+        payload: row.payload_json ? safeJsonParse(row.payload_json, {}) : {},
+        createdAt: row.created_at,
+      })),
+    };
+  });
+
+  fastify.get("/api/admin/abha/review-queue", async (request, reply) => {
+    if (!requireOps(request, reply)) return;
+    if (!["admin", "front_desk"].includes(request.authUser.role)) {
+      return reply.code(403).send({ error: "Forbidden." });
+    }
+    const rows = await all(
+      `SELECT
+          u.id AS patient_id,
+          u.name AS patient_name,
+          u.patient_uid,
+          u.email AS patient_email,
+          p.phone,
+          p.abha_number,
+          p.abha_address,
+          p.abha_status,
+          p.abha_last_error,
+          pr.unit_department_name,
+          pr.unit_doctor_name,
+          (
+            SELECT created_at
+            FROM abha_link_events e
+            WHERE e.user_id = u.id AND e.action = 'verification_requested'
+            ORDER BY created_at DESC, id DESC
+            LIMIT 1
+          ) AS requested_at,
+          (
+            SELECT notes
+            FROM abha_link_events e
+            WHERE e.user_id = u.id AND e.action = 'verification_requested'
+            ORDER BY created_at DESC, id DESC
+            LIMIT 1
+          ) AS request_notes
+       FROM users u
+       JOIN profiles p ON p.user_id = u.id
+       LEFT JOIN patient_registration_details pr ON pr.user_id = u.id
+       WHERE u.role = 'patient'
+         AND p.abha_status IN ('pending_verification', 'verification_rejected')
+       ORDER BY
+         CASE p.abha_status WHEN 'pending_verification' THEN 0 ELSE 1 END,
+         COALESCE(requested_at, u.created_at) DESC`,
+      [],
+    );
+    return {
+      queue: rows.map((row) => ({
+        patientId: row.patient_id,
+        patientName: row.patient_name,
+        patientUid: row.patient_uid || `PID${String(row.patient_id).padStart(6, "0")}`,
+        patientEmail: row.patient_email || "",
+        phone: row.phone || "",
+        abhaNumber: row.abha_number || "",
+        abhaAddress: row.abha_address || "",
+        abhaStatus: row.abha_status || "not_linked",
+        abhaLastError: row.abha_last_error || "",
+        departmentName: row.unit_department_name || "",
+        doctorName: row.unit_doctor_name || "",
+        requestedAt: row.requested_at || null,
+        requestNotes: row.request_notes || "",
+      })),
+    };
+  });
+
+  fastify.get("/api/admin/abha/:patientId/history", async (request, reply) => {
+    if (!requireOps(request, reply)) return;
+    if (!["admin", "front_desk"].includes(request.authUser.role)) {
+      return reply.code(403).send({ error: "Forbidden." });
+    }
+    const patientId = Number(request.params?.patientId || 0);
+    if (!patientId) return reply.code(400).send({ error: "Valid patient id is required." });
+    const rows = await all(
+      `SELECT id, abha_number, abha_address, action, status, source, notes, payload_json, created_at
+       FROM abha_link_events
+       WHERE user_id = ?
+       ORDER BY created_at DESC, id DESC
+       LIMIT 20`,
+      [patientId],
+    );
+    return {
+      history: rows.map((row) => ({
+        id: row.id,
+        abhaNumber: row.abha_number || "",
+        abhaAddress: row.abha_address || "",
+        action: row.action,
+        status: row.status,
+        source: row.source || "",
+        notes: row.notes || "",
+        payload: row.payload_json ? safeJsonParse(row.payload_json, {}) : {},
+        createdAt: row.created_at,
+      })),
+    };
+  });
+
+  fastify.post("/api/abha/request-verification", async (request, reply) => {
+    if (!requireAuth(request, reply)) return;
+    const targetUserId = request.authUser.id;
+    const existing = await get(
+      `SELECT abha_number, abha_address, abha_status, abha_verified_at, abha_link_source
+       FROM profiles
+       WHERE user_id = ?`,
+      [targetUserId],
+    );
+
+    if (!existing) {
+      return reply.code(400).send({ error: "Save your profile before requesting ABHA verification." });
+    }
+
+    const validation = validateAbhaIdentity({
+      abhaNumber: existing.abha_number,
+      abhaAddress: existing.abha_address,
+    });
+    if (!validation.ok) {
+      return reply.code(400).send({ error: validation.error });
+    }
+    const { normalizedNumber: normalizedAbhaNumber, normalizedAddress: normalizedAbhaAddress } = validation;
+    if (!normalizedAbhaNumber && !normalizedAbhaAddress) {
+      return reply.code(400).send({ error: "Add ABHA number or ABHA address first." });
+    }
+
+    if (String(existing.abha_status || "").toLowerCase() === "verified") {
+      return reply.code(409).send({ error: "ABHA is already verified for this profile." });
+    }
+    if (String(existing.abha_status || "").toLowerCase() === "pending_verification") {
+      return reply.code(409).send({ error: "ABHA verification is already pending review." });
+    }
+    const conflictingProfile = await findConflictingAbhaIdentity({
+      userId: targetUserId,
+      abhaNumber: normalizedAbhaNumber,
+      abhaAddress: normalizedAbhaAddress,
+    });
+    if (conflictingProfile) {
+      return reply.code(409).send({
+        error: "These ABHA details are already linked to another patient profile.",
+      });
+    }
+
+    const createdAt = nowIso();
+    await run(
+      `UPDATE profiles
+       SET abha_status = ?, abha_verified_at = ?, abha_link_source = ?, abha_last_synced_at = ?, abha_last_error = ?, updated_at = ?
+       WHERE user_id = ?`,
+      ["pending_verification", null, "verification_requested", null, null, createdAt, targetUserId],
+    );
+
+    await run(
+      `INSERT INTO abha_link_events
+       (user_id, abha_number, abha_address, action, status, source, notes, payload_json, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        targetUserId,
+        normalizedAbhaNumber || null,
+        normalizedAbhaAddress || null,
+        "verification_requested",
+        "pending_verification",
+        "patient_portal",
+        "Verification requested. Hospital team can review the ABHA details and complete ABDM linkage later.",
+        JSON.stringify({
+          requestedBy: "patient",
+        }),
+        createdAt,
+      ],
+    );
+
+    const reviewers = await all(
+      `SELECT id
+       FROM users
+       WHERE role IN ('admin', 'front_desk')
+         AND active = 1`,
+      [],
+    );
+    await Promise.all(
+      reviewers.map((reviewer) =>
+        enqueueAndDeliverUserNotification
+          ? enqueueAndDeliverUserNotification({
+              userId: reviewer.id,
+              type: "abha_review",
+              title: "ABHA verification requested",
+              message: `${request.authUser.name || "A patient"} requested ABHA verification.`,
+              relatedId: targetUserId,
+              eventKey: `abha-request-${targetUserId}-${createdAt}-${reviewer.id}`,
+            })
+          : Promise.resolve(),
+      ),
+    );
+
+    const profile = await readPatientProfileByUserId(targetUserId);
+    return {
+      ok: true,
+      message: "ABHA verification request submitted.",
+      profile,
+    };
+  });
+
+  fastify.post("/api/admin/abha/:patientId/review", async (request, reply) => {
+    if (!requireOps(request, reply)) return;
+    if (!["admin", "front_desk"].includes(request.authUser.role)) {
+      return reply.code(403).send({ error: "Forbidden." });
+    }
+    const patientId = Number(request.params?.patientId || 0);
+    const decision = String(request.body?.decision || "").trim().toLowerCase();
+    const note = String(request.body?.note || "").trim();
+    if (!patientId) return reply.code(400).send({ error: "Valid patient id is required." });
+    if (!["approve", "reject"].includes(decision)) {
+      return reply.code(400).send({ error: "Decision must be approve or reject." });
+    }
+
+    const existing = await get(
+      `SELECT abha_number, abha_address, abha_status
+       FROM profiles
+       WHERE user_id = ?`,
+      [patientId],
+    );
+    if (!existing) {
+      return reply.code(404).send({ error: "Patient profile not found." });
+    }
+    if (!String(existing.abha_number || "").trim() && !String(existing.abha_address || "").trim()) {
+      return reply.code(400).send({ error: "Patient does not have ABHA details to review." });
+    }
+    const currentStatus = String(existing.abha_status || "").toLowerCase();
+    if (currentStatus !== "pending_verification") {
+      return reply.code(409).send({ error: "Only pending ABHA requests can be reviewed." });
+    }
+    if (decision === "reject" && !note) {
+      return reply.code(400).send({ error: "Add a review note before rejecting ABHA details." });
+    }
+    const conflictingProfile = await findConflictingAbhaIdentity({
+      userId: patientId,
+      abhaNumber: normalizeAbhaNumber(existing.abha_number),
+      abhaAddress: normalizeAbhaAddress(existing.abha_address),
+    });
+    if (decision === "approve" && conflictingProfile) {
+      return reply.code(409).send({
+        error: "These ABHA details already exist on another patient profile.",
+      });
+    }
+
+    const createdAt = nowIso();
+    if (decision === "approve") {
+      await run(
+        `UPDATE profiles
+         SET abha_status = ?, abha_verified_at = ?, abha_link_source = ?, abha_last_synced_at = ?, abha_last_error = ?, updated_at = ?
+         WHERE user_id = ?`,
+        ["verified", createdAt, "ops_verified", createdAt, null, createdAt, patientId],
+      );
+      await run(
+        `INSERT INTO abha_link_events
+         (user_id, abha_number, abha_address, action, status, source, notes, payload_json, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          patientId,
+          existing.abha_number || null,
+          existing.abha_address || null,
+          "verification_approved",
+          "verified",
+          request.authUser.role,
+          note || "ABHA details reviewed and marked verified by hospital operations.",
+          JSON.stringify({
+            reviewedByUserId: request.authUser.id,
+            reviewedByName: request.authUser.name || "",
+            reviewedByRole: request.authUser.role || "",
+          }),
+          createdAt,
+        ],
+      );
+      await (enqueueAndDeliverUserNotification
+        ? enqueueAndDeliverUserNotification({
+            userId: patientId,
+            type: "abha_review",
+            title: "ABHA verified",
+            message: "Your ABHA details were reviewed and marked verified.",
+            relatedId: patientId,
+            eventKey: `abha-review-approve-${patientId}-${createdAt}`,
+          })
+        : Promise.resolve());
+    } else {
+      await run(
+        `UPDATE profiles
+         SET abha_status = ?, abha_verified_at = ?, abha_link_source = ?, abha_last_synced_at = ?, abha_last_error = ?, updated_at = ?
+         WHERE user_id = ?`,
+        ["verification_rejected", null, "ops_rejected", null, note || "ABHA details need correction.", createdAt, patientId],
+      );
+      await run(
+        `INSERT INTO abha_link_events
+         (user_id, abha_number, abha_address, action, status, source, notes, payload_json, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          patientId,
+          existing.abha_number || null,
+          existing.abha_address || null,
+          "verification_rejected",
+          "verification_rejected",
+          request.authUser.role,
+          note || "ABHA details were reviewed and need correction before verification.",
+          JSON.stringify({
+            reviewedByUserId: request.authUser.id,
+            reviewedByName: request.authUser.name || "",
+            reviewedByRole: request.authUser.role || "",
+          }),
+          createdAt,
+        ],
+      );
+      await (enqueueAndDeliverUserNotification
+        ? enqueueAndDeliverUserNotification({
+            userId: patientId,
+            type: "abha_review",
+            title: "ABHA needs correction",
+            message: note || "Your ABHA details need correction before verification.",
+            relatedId: patientId,
+            eventKey: `abha-review-reject-${patientId}-${createdAt}`,
+          })
+        : Promise.resolve());
+    }
+
+    const profile = await readPatientProfileByUserId(patientId);
+    return {
+      ok: true,
+      message: decision === "approve" ? "ABHA marked verified." : "ABHA sent back for correction.",
+      profile,
+    };
+  });
+
   fastify.post("/api/profile", async (request, reply) => {
     const {
       userId,
@@ -1300,25 +1688,52 @@ const registerPatientRoutes = (fastify, deps) => {
        FROM profiles WHERE user_id = ?`,
       [targetUserId],
     );
-    const normalizedAbhaNumber = String(abhaNumber || "").replace(/\D/g, "");
-    const normalizedAbhaAddress = String(abhaAddress || "").trim().toLowerCase();
+    const abhaValidation = validateAbhaIdentity({
+      abhaNumber,
+      abhaAddress,
+    });
+    if (!abhaValidation.ok) {
+      return reply.code(400).send({ error: abhaValidation.error });
+    }
+    const normalizedAbhaNumber = abhaValidation.normalizedNumber;
+    const normalizedAbhaAddress = abhaValidation.normalizedAddress;
     const hasAbhaIdentity = Boolean(normalizedAbhaNumber || normalizedAbhaAddress);
-    const preservingVerifiedIdentity =
-      existing?.abha_status === "verified" &&
+    const conflictingAbhaProfile = hasAbhaIdentity
+      ? await findConflictingAbhaIdentity({
+          userId: targetUserId,
+          abhaNumber: normalizedAbhaNumber,
+          abhaAddress: normalizedAbhaAddress,
+        })
+      : null;
+    if (conflictingAbhaProfile) {
+      return reply.code(409).send({
+        error: "These ABHA details are already linked to another patient profile.",
+      });
+    }
+    const preservingExistingIdentity =
+      ["verified", "pending_verification"].includes(String(existing?.abha_status || "").toLowerCase()) &&
       String(existing?.abha_number || "") === normalizedAbhaNumber &&
       String(existing?.abha_address || "") === normalizedAbhaAddress;
     const resolvedAbhaStatus = hasAbhaIdentity
-      ? preservingVerifiedIdentity
-        ? "verified"
+      ? preservingExistingIdentity
+        ? String(existing?.abha_status || "").toLowerCase() === "verified"
+          ? "verified"
+          : "pending_verification"
         : "self_reported"
       : "not_linked";
-    const resolvedAbhaVerifiedAt = preservingVerifiedIdentity ? existing?.abha_verified_at || nowIso() : null;
+    const resolvedAbhaVerifiedAt =
+      String(existing?.abha_status || "").toLowerCase() === "verified" && preservingExistingIdentity
+        ? existing?.abha_verified_at || nowIso()
+        : null;
     const resolvedAbhaLinkSource = hasAbhaIdentity
-      ? preservingVerifiedIdentity
-        ? existing?.abha_link_source || "abdm_verified"
+      ? preservingExistingIdentity
+        ? existing?.abha_link_source || (resolvedAbhaStatus === "verified" ? "abdm_verified" : "verification_requested")
         : "patient_self_reported"
       : null;
-    const resolvedAbhaLastSyncedAt = preservingVerifiedIdentity ? existing?.abha_last_synced_at || nowIso() : null;
+    const resolvedAbhaLastSyncedAt =
+      String(existing?.abha_status || "").toLowerCase() === "verified" && preservingExistingIdentity
+        ? existing?.abha_last_synced_at || nowIso()
+        : null;
     const abhaChanged =
       String(existing?.abha_number || "") !== normalizedAbhaNumber ||
       String(existing?.abha_address || "") !== normalizedAbhaAddress ||
@@ -1351,7 +1766,7 @@ const registerPatientRoutes = (fastify, deps) => {
           resolvedAbhaVerifiedAt,
           resolvedAbhaLinkSource,
           resolvedAbhaLastSyncedAt,
-          preservingVerifiedIdentity ? null : null,
+          preservingExistingIdentity ? null : null,
           emergencyContactName || null,
           emergencyContactPhone || null,
           nowIso(),
@@ -1408,10 +1823,12 @@ const registerPatientRoutes = (fastify, deps) => {
           resolvedAbhaStatus,
           "patient_profile",
           hasAbhaIdentity
-            ? "ABHA details saved from patient profile. Live ABDM verification is pending."
+            ? resolvedAbhaStatus === "pending_verification"
+              ? "ABHA details updated while verification is pending."
+              : "ABHA details saved from patient profile. Live ABDM verification is pending."
             : "ABHA details cleared from patient profile.",
           JSON.stringify({
-            preservingVerifiedIdentity,
+            preservingExistingIdentity,
             hasAbhaIdentity,
           }),
           nowIso(),

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { PEDIATRIC_VACCINE_CATALOG } from './DoctorConsoleWorkspace'
+import { DoctorAssistPanel } from './DoctorAssistPanel'
 
 function formatTeleStatus(status) {
   const normalized = String(status || '').toLowerCase()
@@ -11,13 +12,7 @@ function formatTeleStatus(status) {
 function resolveTeleconsultJoinUrl(consult) {
   const saved = String(consult?.meetingUrl || '').trim()
   if (saved) return saved
-  if (!consult?.id || !['video', 'audio'].includes(String(consult?.mode || '').toLowerCase())) return ''
-  const room = `SehatSaathi-Consult-${consult.id}`
-  const configSuffix =
-    String(consult.mode).toLowerCase() === 'audio'
-      ? '#config.startWithVideoMuted=true&config.prejoinPageEnabled=false&config.disableDeepLinking=true'
-      : '#config.prejoinPageEnabled=false&config.disableDeepLinking=true'
-  return `https://meet.jit.si/${room}${configSuffix}`
+  return ''
 }
 
 function formatSnapshotStatus(status) {
@@ -104,6 +99,10 @@ export function RemoteConsultWorkspace({
   dismissedNoteAssistIds,
   loadNoteAssistSuggestions,
   applyNoteAssistSuggestion,
+  applyAssistComplaintTemplate,
+  applyAssistDiagnosisSuggestion,
+  stageAssistOrderSuggestion,
+  applyAssistPrescriptionTemplate,
   dismissNoteAssistSuggestion,
   noteRefineLoading,
   noteRefineStatus,
@@ -507,12 +506,6 @@ export function RemoteConsultWorkspace({
 
             <div className="remote-console-layout">
               <div className="remote-console-main">
-                {!isChatMode ? (
-                  <div className="doctor-console-banner subtle">
-                    {String(activeRemoteConsult.mode || '').toUpperCase()} consult is marked as coming soon. Keep using this workspace for intake, scheduling, and status updates, while live calling remains disabled for now.
-                  </div>
-                ) : null}
-
                 <div className="doctor-console-tabs doctor-console-tabs-wide">
                   {remoteTabConfig.map((tab) => (
                     <button
@@ -898,58 +891,35 @@ export function RemoteConsultWorkspace({
                         <p className="micro">Finalize the consult note directly from the remote workspace.</p>
                       </div>
                     </div>
-                    <div className="doctor-note-assist-panel">
-                      <div className="section-head compact">
-                        <div>
-                          <p className="micro strong">Symptom assist</p>
-                          <p className="micro">Type 1-3 words or shorthand and reuse the same note suggestion flow as the in-person console.</p>
-                        </div>
-                      </div>
-                      <div className="doctor-note-assist-search">
-                        <input
-                          type="text"
-                          value={noteAssistQuery}
-                          onChange={(event) => setNoteAssistQuery(event.target.value)}
-                          placeholder="Try: fever, slow growth, rash..."
-                        />
-                        <button
-                          className="ghost"
-                          type="button"
-                          onClick={() => loadNoteAssistSuggestions(noteAssistQuery)}
-                          disabled={noteAssistLoading || String(noteAssistQuery || '').trim().length < 2}
-                        >
-                          {noteAssistLoading ? 'Suggesting…' : 'Suggest'}
-                        </button>
-                      </div>
-                      {noteAssistStatus ? <p className="micro doctor-note-assist-status">{noteAssistStatus}</p> : null}
-                      {visibleNoteAssistSuggestions.length ? (
-                        <div className="doctor-note-assist-list">
-                          {visibleNoteAssistSuggestions.map((suggestion) => (
-                            <div key={suggestion.id} className="doctor-note-assist-card">
-                              <div className="doctor-note-assist-meta">
-                                <div>
-                                  <p className="micro strong">{suggestion.label}</p>
-                                  {suggestion.reason ? <p className="micro">{suggestion.reason}</p> : null}
-                                </div>
-                                <span className="doctor-note-assist-score">{Math.round((suggestion.score || 0) * 100)}%</span>
-                              </div>
-                              <p className="doctor-note-assist-preview">{suggestion.noteText}</p>
-                              <div className="action-row doctor-note-assist-actions">
-                                <button type="button" className="ghost" onClick={() => applyNoteAssistSuggestion(suggestion)}>
-                                  Use note
-                                </button>
-                                <button type="button" className="ghost" onClick={() => applyNoteAssistSuggestion(suggestion, { applySummary: true })}>
-                                  Use note + summary
-                                </button>
-                                <button type="button" className="secondary" onClick={() => dismissNoteAssistSuggestion(suggestion.id)}>
-                                  Dismiss
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : null}
-                    </div>
+                    <DoctorAssistPanel
+                      title={
+                        activeDoctorConsoleKind === 'pediatrics'
+                          ? 'Pediatric clinic assist'
+                          : activeDoctorConsoleKind === 'surgery'
+                            ? 'Surgical OPD assist'
+                            : 'Clinical template assist'
+                      }
+                      subtitle={
+                        activeDoctorConsoleKind === 'pediatrics'
+                          ? 'Use child-visit templates for fever, wheeze, growth, nutrition, abdominal pain, vaccine review, and caregiver-facing note drafting during the live consult.'
+                          : activeDoctorConsoleKind === 'surgery'
+                            ? 'Use surgical OPD templates for post-op review, wound care, acute abdomen, hernia, piles/fissure, and sharper procedure-facing notes during the live consult.'
+                            : 'Use the same note, diagnosis, order, and medicine templates here while the remote consult is live.'
+                      }
+                      departmentKey={activeDoctorConsoleKind}
+                      noteAssistQuery={noteAssistQuery}
+                      setNoteAssistQuery={setNoteAssistQuery}
+                      noteAssistSuggestions={visibleNoteAssistSuggestions}
+                      noteAssistStatus={noteAssistStatus}
+                      noteAssistLoading={noteAssistLoading}
+                      loadNoteAssistSuggestions={loadNoteAssistSuggestions}
+                      applyNoteAssistSuggestion={applyNoteAssistSuggestion}
+                      applyAssistComplaintTemplate={applyAssistComplaintTemplate}
+                      applyAssistDiagnosisSuggestion={applyAssistDiagnosisSuggestion}
+                      stageAssistOrderSuggestion={stageAssistOrderSuggestion}
+                      applyAssistPrescriptionTemplate={applyAssistPrescriptionTemplate}
+                      dismissNoteAssistSuggestion={dismissNoteAssistSuggestion}
+                    />
                     <label>
                       Note
                       <textarea rows="5" value={noteDraft} onChange={(event) => setNoteDraft(event.target.value)} />
@@ -1158,8 +1128,7 @@ export function RemoteConsultWorkspace({
                       <input
                         type="url"
                         value={remoteConsultDraft.meetingUrl}
-                        placeholder="Leave blank to use the built-in room link"
-                        disabled={!isChatMode}
+                        placeholder="Leave blank to use the built-in meeting room"
                         onChange={(event) => setRemoteConsultDraft((prev) => ({ ...prev, meetingUrl: event.target.value }))}
                       />
                     </label>

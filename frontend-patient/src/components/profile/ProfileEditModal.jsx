@@ -12,8 +12,14 @@ export function ProfileEditModal({
   profileValidationErrors,
   profileStepReady,
   profileStatus,
+  abhaHistory,
+  requestAbhaVerification,
   t,
 }) {
+  const abhaStatus = String(profileForm.abhaStatus || "not_linked").toLowerCase();
+  const canRequestVerification =
+    (profileForm.abhaNumber || profileForm.abhaAddress) &&
+    !["verified", "pending_verification"].includes(abhaStatus);
   return (
     <div className="modal-backdrop" onClick={() => setProfileEditMode(false)}>
       <div className="modal appointment-modal" onClick={(event) => event.stopPropagation()}>
@@ -108,6 +114,43 @@ export function ProfileEditModal({
                   ABHA status
                   <input type="text" value={String(profileForm.abhaStatus || "not_linked").replace(/_/g, " ")} readOnly />
                 </label>
+              </div>
+              <div className="history-card">
+                <p className="history-headline">ABHA verification</p>
+                <p className="micro">
+                  {abhaStatus === "verified"
+                    ? "ABHA is marked verified on this profile."
+                    : abhaStatus === "pending_verification"
+                      ? "Verification request is pending hospital review."
+                      : abhaStatus === "verification_rejected"
+                        ? "ABHA details need correction. Update the fields if needed, then request verification again."
+                      : "Save ABHA details, then request verification so the hospital team can review it."}
+                </p>
+                <div className="action-row">
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={requestAbhaVerification}
+                    disabled={!canRequestVerification}
+                  >
+                    {abhaStatus === "pending_verification" ? "Verification pending" : abhaStatus === "verification_rejected" ? "Request again" : "Request verification"}
+                  </button>
+                </div>
+                {abhaHistory?.length ? (
+                  <div className="history-list compact-list" style={{ marginTop: 12 }}>
+                    {abhaHistory.slice(0, 3).map((event) => (
+                      <div key={event.id} className="history-card">
+                        <p className="history-headline">
+                          {String(event.action || "").replace(/_/g, " ")}
+                        </p>
+                        <p className="micro">
+                          {new Date(event.createdAt).toLocaleString()} • {String(event.status || "").replace(/_/g, " ")}
+                        </p>
+                        {event.notes ? <p className="micro">{event.notes}</p> : null}
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
               </div>
               <div className="form-row">
                 <label>

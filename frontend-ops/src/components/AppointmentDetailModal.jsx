@@ -1,5 +1,7 @@
 import { appointmentStatusLabel, getAllowedAppointmentStatuses, normalizeAppointmentStatus } from '../opsConfig'
 
+const formatAppointmentRef = (appointmentId) => String(appointmentId || '').padStart(3, '0')
+
 export function AppointmentDetailModal({
   activeAppointment,
   setActiveAppointmentId,
@@ -19,7 +21,7 @@ export function AppointmentDetailModal({
         <div className="section-head compact">
           <div>
             <p className="eyebrow">Appointment detail</p>
-            <h2>#{activeAppointment.id} • {activeAppointment.patient_name || 'Patient'}</h2>
+            <h2>{formatAppointmentRef(activeAppointment.id)} • {activeAppointment.patient_name || 'Patient'}</h2>
             <p className="panel-sub">
               {activeAppointment.patient_email || 'No email'}
               {activeAppointment.member_name ? ` • ${activeAppointment.member_name}` : ''}

@@ -1,9 +1,19 @@
+import { useState } from 'react'
+
+const formatPatientDisplayId = (patient) => patient?.patient_uid || `PID${String(patient?.id || '').padStart(6, '0')}`
+
 export function PatientAdministrationWorkspace({
   patientsStatus,
   patients,
   patientSearch,
   setPatientSearch,
   loadPatients,
+  abhaReviewQueue,
+  abhaReviewStatus,
+  loadAbhaReviewQueue,
+  reviewPatientAbha,
+  abhaReviewNotes,
+  setAbhaReviewNotes,
   setShowCreatePatientModal,
   handlePatientQuickAction,
   activePatient,
@@ -37,9 +47,19 @@ export function PatientAdministrationWorkspace({
   createPatient,
   unitDoctorsForCreate,
 }) {
+  const [activeRegistryView, setActiveRegistryView] = useState('patients')
+  const [abhaQueueFilter, setAbhaQueueFilter] = useState('all')
+  const [abhaSearch, setAbhaSearch] = useState('')
   const activeCount = patients.filter((patient) => patient.activeDraft === 'active').length
-  const opdCount = patients.filter((patient) => String(patient.registrationModeDraft || '').toLowerCase() === 'opd').length
-  const pidCount = patients.filter((patient) => String(patient.registrationModeDraft || '').toLowerCase() === 'pid').length
+  const pendingAbhaCount = abhaReviewQueue.filter((item) => item.abhaStatus === 'pending_verification').length
+  const visibleAbhaQueue = abhaReviewQueue.filter((item) => {
+    const statusOk = abhaQueueFilter === 'all' || item.abhaStatus === abhaQueueFilter
+    const q = abhaSearch.trim().toLowerCase()
+    if (!statusOk) return false
+    if (!q) return true
+    const haystack = [item.patientName, item.patientUid, item.abhaNumber, item.abhaAddress].join(' ').toLowerCase()
+    return haystack.includes(q)
+  })
   return (
     <>
       <section className="grid">
@@ -68,12 +88,111 @@ export function PatientAdministrationWorkspace({
               <span className="micro">Profiles currently marked active</span>
             </article>
             <article className="patient-admin-stat-card">
-              <span className="mini-label">OPD / PID split</span>
-              <strong>{opdCount} / {pidCount}</strong>
-              <span className="micro">Registration mix in the current view</span>
+              <span className="mini-label">ABHA review</span>
+              <strong>{pendingAbhaCount}</strong>
+              <span className="micro">Pending verification requests</span>
             </article>
           </div>
+          <div className="patient-admin-lane-switch">
+            <label className="workspace-select grouped patient-admin-view-select">
+              <span className="mini-label">Registry view</span>
+              <select value={activeRegistryView} onChange={(event) => setActiveRegistryView(event.target.value)}>
+                <option value="patients">Patients</option>
+                <option value="abha">ABHA review</option>
+              </select>
+            </label>
+          </div>
           <div className="grid nested-grid">
+            {activeRegistryView === 'abha' ? (
+            <div className="panel result">
+              <div className="section-head compact">
+                <div>
+                  <h3>ABHA review queue</h3>
+                  <p className="panel-sub">Review pending ABHA verification requests from the patient portal.</p>
+                </div>
+                <button className="secondary" type="button" onClick={() => loadAbhaReviewQueue()}>Refresh queue</button>
+              </div>
+              {abhaReviewStatus ? <p className="micro">{abhaReviewStatus}</p> : null}
+              <div className="form-row">
+                <label>
+                  Filter
+                  <select value={abhaQueueFilter} onChange={(event) => setAbhaQueueFilter(event.target.value)}>
+                    <option value="all">All</option>
+                    <option value="pending_verification">Pending</option>
+                    <option value="verification_rejected">Rejected</option>
+                  </select>
+                </label>
+                <label>
+                  Search ABHA / patient
+                  <input
+                    type="search"
+                    placeholder="ABHA number, address, name, PID"
+                    value={abhaSearch}
+                    onChange={(event) => setAbhaSearch(event.target.value)}
+                  />
+                </label>
+              </div>
+              <div className="table-shell patient-table-shell">
+                <div className="admin-table patient-table-head">
+                  <span>Patient</span>
+                  <span>ABHA</span>
+                  <span>Status</span>
+                  <span>Requested</span>
+                  <span>Action</span>
+                </div>
+                {visibleAbhaQueue.map((item) => (
+                  <div key={`abha-review-${item.patientId}`} className="admin-table patient-table-row">
+                    <span className="table-cell">
+                      <strong>{item.patientName || '-'}</strong>
+                      <br />
+                      <span className="micro">{item.patientUid}</span>
+                    </span>
+                    <span className="table-cell">
+                      <span>{item.abhaNumber || item.abhaAddress || '-'}</span>
+                      {item.abhaNumber && item.abhaAddress ? <p className="micro">{item.abhaAddress}</p> : null}
+                    </span>
+                    <span className="table-cell">
+                      <span className={`status-pill ${item.abhaStatus === 'verified' ? 'completed' : item.abhaStatus === 'pending_verification' ? 'checkedin' : 'requested'}`}>
+                        {String(item.abhaStatus || 'not_linked').replace(/_/g, ' ')}
+                      </span>
+                    </span>
+                    <span className="table-cell">{item.requestedAt ? new Date(item.requestedAt).toLocaleString() : '-'}</span>
+                    <span className="table-cell">
+                      <div className="table-actions" style={{ alignItems: 'stretch' }}>
+                        <button className="secondary" type="button" onClick={() => { handlePatientQuickAction('profile', { id: item.patientId }) }}>
+                          Open
+                        </button>
+                        {item.abhaStatus === 'pending_verification' ? (
+                          <>
+                            <button className="primary" type="button" onClick={() => void reviewPatientAbha(item.patientId, 'approve')}>
+                              Approve
+                            </button>
+                            <textarea
+                              rows={2}
+                              placeholder="Reject note for patient"
+                              value={abhaReviewNotes[item.patientId] || ''}
+                              onChange={(event) =>
+                                setAbhaReviewNotes((prev) => ({ ...prev, [item.patientId]: event.target.value }))
+                              }
+                            />
+                            <button
+                              className="ghost"
+                              type="button"
+                              onClick={() => void reviewPatientAbha(item.patientId, 'reject', (abhaReviewNotes[item.patientId] || '').trim() || item.requestNotes || 'Please review and correct ABHA details.')}
+                            >
+                              Reject
+                            </button>
+                          </>
+                        ) : null}
+                      </div>
+                    </span>
+                  </div>
+                ))}
+                {visibleAbhaQueue.length === 0 ? <p className="micro">No ABHA reviews match the current filter.</p> : null}
+              </div>
+            </div>
+            ) : null}
+            {activeRegistryView === 'patients' ? (
             <div className="panel result">
               <div className="section-head compact">
                 <div>
@@ -160,7 +279,7 @@ export function PatientAdministrationWorkspace({
                 {patients.map((patient) => (
                   <div key={`patient-${patient.id}`} className="admin-table patient-table-row">
                     <span className="table-cell">{patient.nameDraft || patient.name || '-'}</span>
-                    <span className="table-cell strong">{patient.patient_uid || `PID${patient.id}`}</span>
+                    <span className="table-cell strong">{formatPatientDisplayId(patient)}</span>
                     <span className="table-cell">{patient.dateOfBirthDraft || '-'}</span>
                     <span className="table-cell">{patient.created_at ? new Date(patient.created_at).toLocaleDateString() : '-'}</span>
                     <span className="table-cell">{patient.ageDraft === '' || patient.ageDraft == null ? '-' : `${patient.ageDraft}y 0m`}</span>
@@ -184,6 +303,7 @@ export function PatientAdministrationWorkspace({
                 {patients.length === 0 && <p className="micro">No patients found for the current search.</p>}
               </div>
             </div>
+            ) : null}
           </div>
         </div>
       </section>
@@ -195,7 +315,7 @@ export function PatientAdministrationWorkspace({
               <div>
                 <p className="eyebrow">Visit registration</p>
                 <h2>Add visit • {activeVisitPatient.nameDraft || activeVisitPatient.name}</h2>
-                <p className="panel-sub">{activeVisitPatient.patient_uid || `PID${activeVisitPatient.id}`}</p>
+                <p className="panel-sub">{formatPatientDisplayId(activeVisitPatient)}</p>
               </div>
               <button className="ghost" type="button" onClick={() => setActiveVisitPatientId(null)}>Close</button>
             </div>
@@ -293,7 +413,7 @@ export function PatientAdministrationWorkspace({
             <div className="section-head compact">
               <div>
                 <p className="eyebrow">Patient detail</p>
-                <h2>{activePatient.patient_uid || `PID${activePatient.id}`} • {activePatient.nameDraft || activePatient.name}</h2>
+                <h2>{formatPatientDisplayId(activePatient)} • {activePatient.nameDraft || activePatient.name}</h2>
                 <p className="panel-sub">{activePatient.created_at ? `Registered ${new Date(activePatient.created_at).toLocaleDateString()}` : ''}</p>
               </div>
               <button className="ghost" type="button" onClick={() => setActivePatientId(null)}>Close</button>
@@ -315,7 +435,7 @@ export function PatientAdministrationWorkspace({
                 <div className="history-card">
                   <p className="history-headline">Patient overview</p>
                   <p className="micro">Name: {activePatient.nameDraft || activePatient.name || '-'}</p>
-                  <p className="micro">Patient ID: {activePatient.patient_uid || `PID${activePatient.id}`}</p>
+                  <p className="micro">Patient ID: {formatPatientDisplayId(activePatient)}</p>
                   <p className="micro">DOB: {activePatient.dateOfBirthDraft || '-'}</p>
                   <p className="micro">Age: {activePatient.ageDraft === '' || activePatient.ageDraft == null ? '-' : `${activePatient.ageDraft}y 0m`}</p>
                 </div>
@@ -520,7 +640,7 @@ export function PatientAdministrationWorkspace({
                     <option value="">Merge into...</option>
                     {patients.filter((candidate) => candidate.id !== activePatient.id).map((candidate) => (
                       <option key={`merge-modal-${activePatient.id}-${candidate.id}`} value={candidate.id}>
-                        {candidate.patient_uid || `PID${candidate.id}`} • {candidate.nameDraft || candidate.name}
+                        {formatPatientDisplayId(candidate)} • {candidate.nameDraft || candidate.name}
                       </option>
                     ))}
                   </select>

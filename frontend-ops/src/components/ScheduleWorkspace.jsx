@@ -1,3 +1,5 @@
+const formatAppointmentRef = (appointmentId) => String(appointmentId || '').padStart(3, '0')
+
 export function ScheduleWorkspace({
   loadDoctorSchedule,
   doctorSchedules,
@@ -65,7 +67,7 @@ export function ScheduleWorkspace({
         <div className="history-list">
           {appointments.map((appointment) => (
             <div key={`doctor-appt-${appointment.id}`} className="history-card elevated">
-              <p className="history-headline">#{appointment.id} • {appointment.patient_name || 'Patient'}</p>
+              <p className="history-headline">{formatAppointmentRef(appointment.id)} • {appointment.patient_name || 'Patient'}</p>
               <p className="micro">{appointment.department_name || appointment.department}</p>
               <p className="micro">{new Date(appointment.scheduled_at).toLocaleString()} • {appointmentStatusLabel(appointment.status)}</p>
               <p className="micro">{appointment.reason}</p>

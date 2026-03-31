@@ -8,10 +8,13 @@ export function ProfileInlineEditor({
   departments,
   profileDepartmentDoctors,
   saveProfile,
+  requestAbhaVerification,
   updateProfileField,
   setProfileForm,
   profileStatus,
+  abhaHistory = [],
 }) {
+  const abhaStatus = String(profileForm.abhaStatus || "not_linked").toLowerCase();
   return (
     <div className="panel">
       <h2>{t("profileTitle")}</h2>
@@ -94,6 +97,33 @@ export function ProfileInlineEditor({
               ABHA status
               <input type="text" value={String(profileForm.abhaStatus || "not_linked").replace(/_/g, " ")} readOnly />
             </label>
+          </div>
+          <div className="history-card">
+            <p className="history-headline">ABHA verification</p>
+            <p className="micro">
+              {abhaStatus === "verified"
+                ? "ABHA is marked verified on this profile."
+                : abhaStatus === "pending_verification"
+                  ? "Verification request is pending hospital review."
+                  : abhaStatus === "verification_rejected"
+                    ? "ABHA details need correction. Update them, then request verification again."
+                  : "Save ABHA details, then request verification from the portal."}
+            </p>
+            <div className="action-row">
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => requestAbhaVerification?.()}
+                disabled={!(profileForm.abhaNumber || profileForm.abhaAddress) || ["verified", "pending_verification"].includes(abhaStatus)}
+              >
+                {abhaStatus === "pending_verification" ? "Verification pending" : abhaStatus === "verification_rejected" ? "Request again" : "Request verification"}
+              </button>
+            </div>
+            {abhaHistory.length ? (
+              <p className="micro">
+                Latest: {String(abhaHistory[0].action || "").replace(/_/g, " ")} • {new Date(abhaHistory[0].createdAt).toLocaleString()}
+              </p>
+            ) : null}
           </div>
           <div className="form-row">
             <label>

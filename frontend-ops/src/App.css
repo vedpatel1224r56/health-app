@@ -1911,6 +1911,18 @@
   color: #17324d;
 }
 
+.patient-admin-lane-switch {
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: end;
+  margin: 4px 0 18px;
+}
+
+.patient-admin-view-select {
+  min-width: 0;
+}
+
 .table-cell {
   min-width: 0;
   font-size: 0.92rem;
@@ -2019,6 +2031,11 @@
     grid-template-columns: 1fr;
   }
 
+  .patient-admin-lane-switch {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
   .overview-hero-strip,
   .queue-summary-strip {
     grid-template-columns: 1fr;
@@ -2118,29 +2135,39 @@
 
 .doctor-console-surface {
   display: grid;
-  gap: 20px;
+  gap: 22px;
   width: 100%;
-  padding: 26px;
+  padding: 28px;
   background:
-    radial-gradient(circle at top right, rgba(33, 91, 148, 0.05), transparent 28%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(249, 251, 254, 0.98));
-  border-radius: 28px;
-  box-shadow: 0 28px 70px rgba(23, 46, 74, 0.08);
+    radial-gradient(circle at top right, rgba(33, 91, 148, 0.09), transparent 24%),
+    radial-gradient(circle at top left, rgba(18, 61, 104, 0.03), transparent 28%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(247, 250, 254, 0.98));
+  border-radius: 30px;
+  border: 1px solid rgba(220, 230, 240, 0.9);
+  box-shadow: 0 30px 76px rgba(23, 46, 74, 0.09);
 }
 
 .doctor-console-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: end;
-  gap: 20px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.88fr);
+  align-items: stretch;
+  gap: 18px;
+  padding: 6px 0 2px;
 }
 
 .doctor-worklist-box {
-  min-width: 360px;
-  max-width: 520px;
+  min-width: 320px;
+  max-width: 540px;
   display: grid;
-  gap: 10px;
+  gap: 12px;
   margin-left: auto;
+  padding: 18px;
+  border-radius: 22px;
+  border: 1px solid #dbe7f3;
+  background:
+    radial-gradient(circle at top right, rgba(33, 91, 148, 0.08), transparent 35%),
+    linear-gradient(180deg, #fbfdff 0%, #f5faff 100%);
+  box-shadow: 0 16px 30px rgba(23, 46, 74, 0.06);
 }
 
 .doctor-worklist-summary {
@@ -2176,6 +2203,7 @@
 .doctor-worklist-box select {
   width: 100%;
   min-height: 46px;
+  background: rgba(255, 255, 255, 0.92);
 }
 
 .doctor-console-banner {
@@ -2195,17 +2223,17 @@
 }
 
 .doctor-consult-strip {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(340px, 0.95fr);
   gap: 20px;
   align-items: start;
   border: 1px solid #dbe3ec;
-  border-radius: 24px;
-  padding: 20px 22px;
+  border-radius: 26px;
+  padding: 22px 24px;
   background:
-    radial-gradient(circle at top right, rgba(33, 91, 148, 0.08), transparent 28%),
-    linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
-  box-shadow: 0 18px 38px rgba(23, 46, 74, 0.07);
+    radial-gradient(circle at top right, rgba(33, 91, 148, 0.1), transparent 28%),
+    linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
+  box-shadow: 0 20px 42px rgba(23, 46, 74, 0.08);
 }
 
 .doctor-consult-title-row {
@@ -2217,13 +2245,16 @@
 
 .doctor-consult-title-row h3 {
   margin: 0;
-  font-size: 1.9rem;
+  font-size: 2rem;
+  line-height: 1.05;
+  color: #14304c;
 }
 
 .doctor-consult-subtitle {
-  margin: 8px 0 0;
-  color: #5a6876;
+  margin: 9px 0 0;
+  color: #5a6d80;
   font-size: 1rem;
+  max-width: 60ch;
 }
 
 .doctor-consult-quick-notes {
@@ -2237,9 +2268,9 @@
   display: inline-flex;
   align-items: center;
   min-height: 30px;
-  padding: 0 11px;
+  padding: 0 12px;
   border-radius: 999px;
-  background: #eef4fb;
+  background: linear-gradient(180deg, #f4f8fd 0%, #edf4fb 100%);
   border: 1px solid #dbe7f3;
   color: #315273;
   font-size: 0.78rem;
@@ -2262,27 +2293,29 @@
 .doctor-fact-chip {
   border: 1px solid #dbe3ec;
   border-radius: 18px;
-  padding: 12px 14px;
-  background: rgba(255, 255, 255, 0.9);
+  padding: 14px 15px;
+  background: rgba(255, 255, 255, 0.94);
   display: grid;
   gap: 6px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.72),
+    0 10px 22px rgba(22, 48, 76, 0.04);
 }
 
 .doctor-console-tabs-wide {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
-  padding: 8px;
-  border-radius: 22px;
+  padding: 10px;
+  border-radius: 24px;
   background:
-    radial-gradient(circle at top right, rgba(33, 91, 148, 0.08), transparent 28%),
-    linear-gradient(180deg, #f7fbff, #eef4fb);
+    radial-gradient(circle at top right, rgba(33, 91, 148, 0.08), transparent 26%),
+    linear-gradient(180deg, #f8fbff, #edf4fb);
   border: 1px solid rgba(214, 226, 238, 0.95);
   position: sticky;
   top: 84px;
   z-index: 30;
-  box-shadow: 0 10px 24px rgba(18, 61, 104, 0.06);
+  box-shadow: 0 12px 26px rgba(18, 61, 104, 0.07);
 }
 
 .doctor-console-tabpanel-wide {
@@ -2398,6 +2431,210 @@
   align-items: center;
 }
 
+.doctor-media-panel {
+  gap: 10px;
+  padding: 14px;
+}
+
+.doctor-media-launcher {
+  max-width: 620px;
+}
+
+.doctor-live-window {
+  min-height: 100vh;
+  padding: 24px;
+  background:
+    radial-gradient(circle at top left, rgba(151, 180, 212, 0.16), transparent 26%),
+    linear-gradient(180deg, #f6f9fd 0%, #eef4fb 100%);
+}
+
+.doctor-live-window-header {
+  max-width: 1180px;
+  margin: 0 auto 16px;
+  padding: 18px 22px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  border-radius: 24px;
+  border: 1px solid rgba(153, 176, 204, 0.26);
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 18px 42px rgba(37, 68, 110, 0.08);
+}
+
+.doctor-live-window-header h2 {
+  margin: 8px 0 4px;
+  font-size: 1.5rem;
+  line-height: 1.1;
+}
+
+.doctor-live-window-subtitle {
+  margin: 0;
+  color: #61758f;
+  font-size: 0.94rem;
+}
+
+.doctor-live-window-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.doctor-live-window .doctor-console-banner,
+.doctor-live-window .doctor-workspace-card {
+  max-width: 1180px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.doctor-live-window-banner {
+  margin-bottom: 14px;
+}
+
+.doctor-media-panel-head {
+  align-items: start;
+}
+
+.doctor-media-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.doctor-media-meta > div {
+  display: grid;
+  gap: 4px;
+  padding: 8px 10px;
+  border: 1px solid #deebf5;
+  border-radius: 12px;
+  background: #f8fbfe;
+}
+
+.doctor-media-actions {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.doctor-media-stage {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
+.doctor-media-stage-video {
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+}
+
+.doctor-media-tile {
+  gap: 10px;
+  min-width: 0;
+}
+
+.doctor-media-patient-stage {
+  position: relative;
+  gap: 10px;
+  min-height: 0;
+  overflow: visible;
+  padding: 8px;
+  width: min(100%, 560px);
+}
+
+.doctor-media-tile-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.doctor-media-tile-head .micro.strong,
+.doctor-media-overlay-head .micro.strong {
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+}
+
+.doctor-media-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 24px;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid #d5e2ee;
+  background: #f6f9fc;
+  color: #476076;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.doctor-media-patient-stage .micro,
+.doctor-media-tile .micro {
+  font-size: 0.77rem;
+  line-height: 1.35;
+}
+
+.doctor-media-badge.is-live {
+  border-color: #cbe5d6;
+  background: #edf9f1;
+  color: #1f6a40;
+}
+
+.doctor-media-video {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: 14px;
+  background: #09111d;
+  border: 1px solid rgba(130, 154, 179, 0.2);
+  display: block;
+}
+
+.doctor-media-video-primary {
+  aspect-ratio: 1 / 1;
+  height: auto;
+  max-height: min(48vh, 520px);
+}
+
+.doctor-media-overlay {
+  position: absolute;
+  right: 10px;
+  bottom: 34px;
+  width: min(22%, 120px);
+  min-width: 86px;
+  padding: 5px;
+  border-radius: 14px;
+  background: rgba(11, 20, 32, 0.88);
+  border: 1px solid rgba(197, 215, 232, 0.18);
+  box-shadow: 0 18px 42px rgba(7, 14, 24, 0.28);
+  backdrop-filter: blur(10px);
+}
+
+.doctor-media-overlay-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+  color: #eef5fb;
+}
+
+.doctor-media-overlay .doctor-media-badge {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: #eef5fb;
+}
+
+.doctor-media-video-overlay {
+  aspect-ratio: 1 / 1;
+  height: auto;
+  border-radius: 8px;
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
 .doctor-console-two-col {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2417,13 +2654,168 @@
   background: #fbfdff;
 }
 
-.doctor-note-assist-panel {
-  border: 1px solid #e3eaf1;
+.doctor-history-row-elevated {
+  background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+  box-shadow: 0 14px 30px rgba(28, 52, 76, 0.05);
+  gap: 10px;
+}
+
+.doctor-note-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  padding: 18px 20px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #f5faff 0%, #eef6ff 52%, #ffffff 100%);
+  border: 1px solid #dde9f5;
+}
+
+.doctor-note-header-secondary {
+  background: linear-gradient(135deg, #fbfdff 0%, #f4f8fc 58%, #ffffff 100%);
+}
+
+.doctor-note-title {
+  margin: 4px 0 6px;
+  font-size: 1.4rem;
+  line-height: 1.1;
+  color: #17324f;
+}
+
+.doctor-note-header-badge {
+  min-width: 150px;
   border-radius: 16px;
-  background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
-  padding: 14px;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid #d7e3f0;
   display: grid;
+  gap: 4px;
+}
+
+.doctor-notes-history-card {
+  gap: 14px;
+}
+
+.doctor-history-entry-head {
+  display: flex;
+  justify-content: space-between;
   gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.doctor-history-entry-badge {
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: #eef5fd;
+  color: #244667;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.doctor-history-entry-time {
+  color: #5c7085;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.doctor-note-header-badge-label {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #55708b;
+}
+
+.doctor-note-assist-panel {
+  border: 1px solid #dfe8f1;
+  border-radius: 20px;
+  background: linear-gradient(180deg, #f7fbff 0%, #ffffff 58%, #fbfdff 100%);
+  padding: 18px;
+  display: grid;
+  gap: 16px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+}
+
+.doctor-note-assist-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.doctor-note-assist-kicker {
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #3f6f8e;
+}
+
+.doctor-note-assist-subtitle {
+  max-width: 760px;
+  line-height: 1.55;
+}
+
+.doctor-note-assist-badge {
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: linear-gradient(180deg, #eef6ff 0%, #e6f1fb 100%);
+  color: #2b5577;
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.doctor-assist-quickstart-block {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid #e4edf5;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.doctor-assist-quickstart-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: baseline;
+}
+
+.doctor-assist-quickstarts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.doctor-assist-quickstart {
+  border: 1px solid #d6e2ef;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
+  color: #224560;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 9px 14px;
+  box-shadow: 0 6px 14px rgba(27, 58, 92, 0.05);
+  transition: border-color 0.2s ease, transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.doctor-assist-quickstart:hover {
+  border-color: #8db1d2;
+  background: #f3f9ff;
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(27, 58, 92, 0.08);
+}
+
+.doctor-note-assist-search-card {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid #e4edf5;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #ffffff 0%, #f9fcff 100%);
 }
 
 .doctor-note-assist-search {
@@ -2433,25 +2825,34 @@
   align-items: center;
 }
 
+.doctor-note-assist-search-hint {
+  margin: 0;
+}
+
 .doctor-note-assist-status {
   color: #58708a;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: #f4f8fd;
+  border: 1px solid #e1eaf3;
 }
 
 .doctor-note-assist-list {
   display: grid;
-  gap: 10px;
-  max-height: 340px;
+  gap: 12px;
+  max-height: 390px;
   overflow-y: auto;
   padding-right: 4px;
 }
 
 .doctor-note-assist-card {
-  border: 1px solid #dbe3ec;
-  border-radius: 14px;
-  background: #fff;
-  padding: 12px;
+  border: 1px solid #dce5ef;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+  padding: 16px;
   display: grid;
-  gap: 10px;
+  gap: 14px;
+  box-shadow: 0 14px 28px rgba(25, 50, 80, 0.06);
 }
 
 .doctor-note-assist-meta {
@@ -2463,8 +2864,8 @@
 
 .doctor-note-assist-score {
   border-radius: 999px;
-  padding: 4px 10px;
-  background: #eef5fd;
+  padding: 5px 10px;
+  background: linear-gradient(180deg, #edf6ff 0%, #e7f1fb 100%);
   color: #244667;
   font-size: 0.78rem;
   font-weight: 700;
@@ -2474,7 +2875,11 @@
 .doctor-note-assist-preview {
   white-space: pre-wrap;
   color: #243646;
-  line-height: 1.55;
+  line-height: 1.6;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #f9fbfe;
+  border: 1px solid #e8eef5;
 }
 
 .doctor-note-assist-actions {
@@ -2486,6 +2891,8 @@
 .doctor-assist-section {
   display: grid;
   gap: 10px;
+  padding-top: 6px;
+  border-top: 1px solid #eef3f8;
 }
 
 .doctor-assist-section-head {
@@ -2497,9 +2904,9 @@
 
 .doctor-assist-template-card {
   border: 1px solid #dbe3ec;
-  border-radius: 14px;
-  background: #ffffff;
-  padding: 12px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+  padding: 14px;
   display: grid;
   gap: 8px;
 }
@@ -2542,17 +2949,18 @@
 
 .doctor-assist-pill-card {
   border: 1px solid #dbe3ec;
-  border-radius: 14px;
-  background: #ffffff;
-  padding: 12px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+  padding: 14px;
   display: grid;
   gap: 10px;
+  box-shadow: 0 10px 20px rgba(24, 52, 84, 0.04);
 }
 
 .doctor-note-refine-bar {
   border: 1px solid #dbe3ec;
   border-radius: 14px;
-  padding: 12px 14px;
+  padding: 14px 16px;
   background: #fbfdff;
   display: flex;
   justify-content: space-between;
@@ -2565,6 +2973,59 @@
   justify-content: flex-start;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+.doctor-note-editor-card {
+  border: 1px solid #dfe8f1;
+  border-radius: 18px;
+  background: #fff;
+  padding: 18px;
+  display: grid;
+  gap: 14px;
+  box-shadow: 0 16px 36px rgba(30, 52, 78, 0.06);
+}
+
+.doctor-note-editor-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.doctor-note-wordcount {
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: #f2f7fd;
+  color: #36536d;
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.doctor-note-editor-field textarea {
+  min-height: 320px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #fcfdff 0%, #f8fbff 100%);
+}
+
+.doctor-note-refine-feedback {
+  margin-top: -4px;
+}
+
+.doctor-note-footer {
+  display: grid;
+  grid-template-columns: minmax(220px, 320px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: end;
+}
+
+.doctor-note-signature {
+  display: grid;
+  gap: 8px;
+}
+
+.doctor-note-savebar {
+  justify-content: flex-end;
 }
 
 .report-month-filter {
@@ -2615,6 +3076,9 @@
 
 .doctor-history-note {
   white-space: pre-wrap;
+  color: #213447;
+  font-size: 0.92rem;
+  line-height: 1.65;
 }
 
 .doctor-history-meta {
@@ -2624,6 +3088,15 @@
   flex-wrap: wrap;
   color: #677585;
   font-size: 0.82rem;
+}
+
+.doctor-history-empty {
+  border: 1px dashed #d6e2ee;
+  border-radius: 16px;
+  padding: 18px;
+  background: linear-gradient(180deg, #fcfdff 0%, #f7fbff 100%);
+  display: grid;
+  gap: 6px;
 }
 
 .doctor-rx-table {
@@ -2811,12 +3284,13 @@
 
 .doctor-console-tab {
   min-height: 46px;
-  padding: 0 16px;
+  padding: 0 18px;
   border-radius: 16px;
-  border: 1px solid transparent;
-  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(216, 228, 239, 0.88);
+  background: rgba(255, 255, 255, 0.78);
   font-weight: 700;
   color: #36516c;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
 }
 
 .doctor-console-tab.active {
@@ -3107,6 +3581,7 @@
   .doctor-form-grid-three,
   .doctor-form-grid-two,
   .doctor-summary-textareas,
+  .doctor-media-meta,
   .doctor-consult-facts,
   .doctor-console-two-col,
   .doctor-summary-layout,
@@ -3118,6 +3593,25 @@
 
   .doctor-fact-chip {
     min-height: auto;
+  }
+
+  .doctor-media-stage {
+    grid-template-columns: 1fr;
+  }
+
+  .doctor-media-overlay {
+    position: static;
+    width: 100%;
+    min-width: 0;
+    margin-top: 10px;
+  }
+
+  .doctor-media-video-primary {
+    max-height: none;
+  }
+
+  .doctor-media-patient-stage {
+    width: 100%;
   }
 }
 

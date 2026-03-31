@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react'
 import './App.css'
 import {
   resolveApiBase,
@@ -20,11 +20,6 @@ import {
   validateHospitalProfileDraft,
   validateHospitalContentDraft,
 } from './opsConfig'
-import { AppointmentsWorkspace } from './components/AppointmentsWorkspace'
-import { PartnerRequestsWorkspace } from './components/PartnerRequestsWorkspace'
-import { SettingsWorkspace } from './components/SettingsWorkspace'
-import { PatientAdministrationWorkspace } from './components/PatientAdministrationWorkspace'
-import { QueueWorkspace } from './components/QueueWorkspace'
 import { VisitCardsWorkspace } from './components/VisitCardsWorkspace'
 import { WardWorkspace } from './components/WardWorkspace'
 import { StoreOrdersWorkspace } from './components/StoreOrdersWorkspace'
@@ -32,17 +27,23 @@ import { DirectIndentWorkspace } from './components/DirectIndentWorkspace'
 import { BillingTpaWorkspace } from './components/BillingTpaWorkspace'
 import { PharmacyIssueWorkspace } from './components/PharmacyIssueWorkspace'
 import { PartnerRequestTimelineDrawer } from './components/PartnerRequestTimelineDrawer'
-import { DoctorConsoleWorkspace } from './components/DoctorConsoleWorkspace'
-import { OverviewWorkspace } from './components/OverviewWorkspace'
-import { AccessWorkspace } from './components/AccessWorkspace'
-import { ScheduleWorkspace } from './components/ScheduleWorkspace'
 import { AppointmentDetailModal } from './components/AppointmentDetailModal'
 import { VisitRegistrationModal } from './components/VisitRegistrationModal'
 import { OpsShell } from './components/OpsShell'
 import { PatientDetailModal } from './components/PatientDetailModal'
 import { CreatePatientModal } from './components/CreatePatientModal'
-import { RemoteConsultWorkspace } from './components/RemoteConsultWorkspace'
-import { NotificationsWorkspace } from './components/NotificationsWorkspace'
+
+const AppointmentsWorkspace = lazy(() => import('./components/AppointmentsWorkspace').then((module) => ({ default: module.AppointmentsWorkspace })))
+const PartnerRequestsWorkspace = lazy(() => import('./components/PartnerRequestsWorkspace').then((module) => ({ default: module.PartnerRequestsWorkspace })))
+const SettingsWorkspace = lazy(() => import('./components/SettingsWorkspace').then((module) => ({ default: module.SettingsWorkspace })))
+const PatientAdministrationWorkspace = lazy(() => import('./components/PatientAdministrationWorkspace').then((module) => ({ default: module.PatientAdministrationWorkspace })))
+const QueueWorkspace = lazy(() => import('./components/QueueWorkspace').then((module) => ({ default: module.QueueWorkspace })))
+const DoctorConsoleWorkspace = lazy(() => import('./components/DoctorConsoleWorkspace').then((module) => ({ default: module.DoctorConsoleWorkspace })))
+const OverviewWorkspace = lazy(() => import('./components/OverviewWorkspace').then((module) => ({ default: module.OverviewWorkspace })))
+const AccessWorkspace = lazy(() => import('./components/AccessWorkspace').then((module) => ({ default: module.AccessWorkspace })))
+const ScheduleWorkspace = lazy(() => import('./components/ScheduleWorkspace').then((module) => ({ default: module.ScheduleWorkspace })))
+const RemoteConsultWorkspace = lazy(() => import('./components/RemoteConsultWorkspace').then((module) => ({ default: module.RemoteConsultWorkspace })))
+const NotificationsWorkspace = lazy(() => import('./components/NotificationsWorkspace').then((module) => ({ default: module.NotificationsWorkspace })))
 
 const API_BASE = resolveApiBase()
 const OPS_TOKEN_STORAGE_KEY = 'ops_health_token'
@@ -127,18 +128,27 @@ function buildDefaultDoctorSignature(name = '') {
 function buildRemoteConsultJoinUrl(consult = {}, meetingUrl = '') {
   const saved = String(meetingUrl || consult?.meetingUrl || '').trim()
   if (saved) return saved
-  if (!consult?.id || !['video', 'audio'].includes(String(consult?.mode || '').toLowerCase())) return ''
-  const room = `SehatSaathi-Consult-${consult.id}`
-  const suffix =
-    String(consult.mode).toLowerCase() === 'audio'
-      ? '#config.startWithVideoMuted=true&config.prejoinPageEnabled=false'
-      : '#config.prejoinPageEnabled=false'
-  return `https://meet.jit.si/${room}${suffix}`
+  return ''
+}
+
+function formatAppointmentRef(appointmentId) {
+  return String(appointmentId || '').padStart(3, '0')
 }
 
 function App() {
+  const liveConsultParams = useMemo(() => {
+    const params = new URLSearchParams(window.location.search)
+    const consultId = Number(params.get('liveConsultId') || 0)
+    return {
+      enabled: params.get('liveConsult') === '1' && consultId > 0,
+      consultId,
+      tab: params.get('tab') || 'video',
+      autoStart: params.get('autoStart') === '1',
+    }
+  }, [])
   const [authForm, setAuthForm] = useState({ email: '', password: '' })
   const [authError, setAuthError] = useState('')
+  const [authHydrated, setAuthHydrated] = useState(false)
   const [user, setUser] = useState(null)
   const [token, setToken] = useState('')
   const [opsData, setOpsData] = useState(null)
@@ -157,7 +167,6 @@ function App() {
   const [remoteConsultsLoading, setRemoteConsultsLoading] = useState(false)
   const [activeRemoteConsultId, setActiveRemoteConsultId] = useState(null)
   const [remoteConsultMessages, setRemoteConsultMessages] = useState([])
-  const [remoteConsultCallEvents, setRemoteConsultCallEvents] = useState([])
   const [remoteConsultMessageText, setRemoteConsultMessageText] = useState('')
   const [remoteConsultMessageStatus, setRemoteConsultMessageStatus] = useState('')
   const [remoteConsultDraft, setRemoteConsultDraft] = useState({ status: 'requested', meetingUrl: '' })
@@ -208,9 +217,13 @@ function App() {
   const [activeVisitPatientId, setActiveVisitPatientId] = useState(null)
   const [activePatientPanel, setActivePatientPanel] = useState('edit')
   const [patientProfileData, setPatientProfileData] = useState({})
+  const [patientAbhaHistoryData, setPatientAbhaHistoryData] = useState({})
   const [patientHistoryData, setPatientHistoryData] = useState({})
   const [patientDocumentsData, setPatientDocumentsData] = useState({})
   const [patientPanelStatus, setPatientPanelStatus] = useState('')
+  const [abhaReviewQueue, setAbhaReviewQueue] = useState([])
+  const [abhaReviewStatus, setAbhaReviewStatus] = useState('')
+  const [abhaReviewNotes, setAbhaReviewNotes] = useState({})
   const [showCreatePatientModal, setShowCreatePatientModal] = useState(false)
   const [visitCreateStatus, setVisitCreateStatus] = useState('')
   const [visitCreateForm, setVisitCreateForm] = useState({ ...initialVisitCreateForm })
@@ -252,6 +265,32 @@ function App() {
     if (token) headers.Authorization = `Bearer ${token}`
     return fetch(url, { ...options, headers })
   }
+
+  const workspaceFallback = (
+    <section className="grid">
+      <div className="doctor-console-empty">Loading workspace…</div>
+    </section>
+  )
+
+  const openStandaloneLiveConsult = useCallback((consult) => {
+    const consultId = Number(consult?.id || 0)
+    if (!consultId) return
+    if (token) {
+      sessionStorage.setItem(OPS_TOKEN_STORAGE_KEY, token)
+      localStorage.setItem(OPS_TOKEN_STORAGE_KEY, token)
+    }
+    if (user) {
+      const serializedUser = JSON.stringify(user)
+      sessionStorage.setItem(OPS_USER_STORAGE_KEY, serializedUser)
+      localStorage.setItem(OPS_USER_STORAGE_KEY, serializedUser)
+    }
+    const url = new URL(window.location.href)
+    url.searchParams.set('liveConsult', '1')
+    url.searchParams.set('liveConsultId', String(consultId))
+    url.searchParams.set('tab', String(consult?.mode || 'video').toLowerCase() === 'audio' ? 'audio' : 'video')
+    url.searchParams.set('autoStart', '1')
+    window.open(url.toString(), '_blank', 'noopener')
+  }, [token, user])
 
   const wakeBackend = async () => {
     try {
@@ -424,7 +463,7 @@ function App() {
     }
     setRemoteConsultDraft({
       status: activeRemoteConsult.status || 'requested',
-      meetingUrl: activeRemoteConsult.meetingUrl || buildRemoteConsultJoinUrl(activeRemoteConsult),
+      meetingUrl: activeRemoteConsult.meetingUrl || '',
     })
     loadRemoteConsultMessages(activeRemoteConsult.id)
     loadRemoteConsultPatientHistory(activeRemoteConsult.id)
@@ -930,23 +969,6 @@ function App() {
     }
   }
 
-  const loadRemoteConsultCallEvents = async (consultId) => {
-    if (!token || !consultId || !['doctor', 'admin', 'front_desk'].includes(user?.role)) return
-    try {
-      const response = await apiFetch(`${API_BASE}/api/teleconsults/${consultId}/call-events`)
-      const data = await response.json()
-      if (!response.ok) {
-        setRemoteConsultMessageStatus(data.error || 'Unable to load audio call state.')
-        setRemoteConsultCallEvents([])
-        return
-      }
-      setRemoteConsultCallEvents(data.events || [])
-    } catch {
-      setRemoteConsultMessageStatus('Unable to load audio call state.')
-      setRemoteConsultCallEvents([])
-    }
-  }
-
   const loadRemoteConsultPatientHistory = async (consultId) => {
     if (!token || !consultId || !['doctor', 'admin', 'front_desk'].includes(user?.role)) return
     try {
@@ -1170,8 +1192,6 @@ function App() {
 
   const openRemoteConsultConsole = async (consultId) => {
     if (!token || user?.role !== 'doctor' || !consultId) return
-    const consultRecord = remoteConsults.find((item) => Number(item.id) === Number(consultId)) || null
-    const isAudioConsult = String(consultRecord?.mode || '').toLowerCase() === 'audio'
     setRemoteConsultsStatus('')
     setNoteDraft('')
     setSignatureDraft(buildDefaultDoctorSignature(user?.name))
@@ -1204,7 +1224,6 @@ function App() {
       await Promise.all([
         loadEncounterDetail(encounterId),
         loadRemoteConsultPatientHistory(consultId),
-        isAudioConsult ? loadRemoteConsultCallEvents(consultId) : Promise.resolve(setRemoteConsultCallEvents([])),
         loadRemoteConsultConsent(consultId),
       ])
       setRemoteConsultsStatus('Remote consult ready.')
@@ -1222,7 +1241,7 @@ function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           status: remoteConsultDraft.status,
-          meetingUrl: remoteConsultDraft.meetingUrl || buildRemoteConsultJoinUrl(activeRemoteConsult),
+          meetingUrl: remoteConsultDraft.meetingUrl || '',
         }),
       })
       const data = await response.json()
@@ -1247,7 +1266,7 @@ function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           status,
-          meetingUrl: remoteConsultDraft.meetingUrl || buildRemoteConsultJoinUrl(activeRemoteConsult),
+          meetingUrl: remoteConsultDraft.meetingUrl || '',
         }),
       })
       const data = await response.json()
@@ -1307,25 +1326,6 @@ function App() {
     }
   }
 
-  const sendRemoteConsultCallEvent = async ({ consultId = null, sessionId, eventType, payload = null }) => {
-    const targetConsultId = Number(consultId || activeRemoteConsultId || 0)
-    if (!targetConsultId || !token) return { ok: false, error: 'Consult not ready.' }
-    try {
-      const response = await apiFetch(`${API_BASE}/api/teleconsults/${targetConsultId}/call-events`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId, eventType, payload }),
-      })
-      const data = await response.json()
-      if (!response.ok) {
-        return { ok: false, error: data.error || 'Unable to send audio signal.' }
-      }
-      return { ok: true, event: data.event }
-    } catch {
-      return { ok: false, error: 'Unable to send audio signal.' }
-    }
-  }
-
   const saveEncounterSummary = async () => {
     const encounterId = activeEncounterDetail?.encounter?.id
     if (!encounterId) return
@@ -1372,7 +1372,7 @@ function App() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             status: encounterForm.status,
-            meetingUrl: remoteConsultDraft.meetingUrl || buildRemoteConsultJoinUrl(activeRemoteConsult),
+            meetingUrl: remoteConsultDraft.meetingUrl || '',
           }),
         })
       }
@@ -2319,6 +2319,7 @@ function App() {
         localStorage.removeItem(OPS_USER_STORAGE_KEY)
       }
     }
+    setAuthHydrated(true)
   }, [])
 
   useEffect(() => {
@@ -2327,6 +2328,7 @@ function App() {
       loadOpsDashboard()
       loadQueue()
       loadPatients()
+      loadAbhaReviewQueue()
       loadNotificationOutboxSummary()
     }
     if (['admin', 'front_desk'].includes(user.role)) {
@@ -2366,6 +2368,16 @@ function App() {
     activeWorkspace,
     user?.role,
   ])
+
+  useEffect(() => {
+    if (!liveConsultParams.enabled || user?.role !== 'doctor') return
+    if (activeWorkspace !== 'console') {
+      setActiveWorkspace('console')
+    }
+    if (activeRemoteConsultId !== liveConsultParams.consultId) {
+      setActiveRemoteConsultId(liveConsultParams.consultId)
+    }
+  }, [activeRemoteConsultId, activeWorkspace, liveConsultParams, user?.role])
 
   useEffect(() => {
     if (activeWorkspace !== 'console' || !activeConsultId || !token || !user) return
@@ -2440,20 +2452,9 @@ function App() {
         // ignore malformed events
       }
     }
-    const handleCallEvent = (event) => {
-      try {
-        const payload = JSON.parse(event.data || '{}')
-        const nextEvent = payload.callEvent
-        if (!nextEvent) return
-        setRemoteConsultCallEvents((prev) => (prev.some((item) => item.id === nextEvent.id) ? prev : [...prev, nextEvent]))
-      } catch {
-        // ignore malformed events
-      }
-    }
     stream.addEventListener('message_created', handleMessageCreated)
     stream.addEventListener('consult_updated', handleConsultUpdated)
     stream.addEventListener('consent_updated', handleConsentUpdated)
-    stream.addEventListener('call_event', handleCallEvent)
     stream.onerror = () => {
       setRemoteConsultMessageStatus((prev) => prev || 'Live consult updates were interrupted. Reopen the consult if needed.')
     }
@@ -2509,6 +2510,8 @@ function App() {
       setActiveWorkspace(data.user?.role === 'doctor' ? 'console' : 'overview')
       sessionStorage.setItem(OPS_TOKEN_STORAGE_KEY, data.token || '')
       sessionStorage.setItem(OPS_USER_STORAGE_KEY, JSON.stringify(data.user))
+      localStorage.setItem(OPS_TOKEN_STORAGE_KEY, data.token || '')
+      localStorage.setItem(OPS_USER_STORAGE_KEY, JSON.stringify(data.user))
       localStorage.removeItem('health_token')
       localStorage.removeItem('health_user')
       setAuthForm({ email: '', password: '' })
@@ -2634,7 +2637,7 @@ function App() {
         setQueueStatus(data.error || 'Unable to update appointment.')
         return
       }
-      setQueueStatus(`Appointment #${appointmentId} updated to ${status}.`)
+      setQueueStatus(`${formatAppointmentRef(appointmentId)} updated to ${status}.`)
       await loadQueue()
       await loadOpsDashboard()
       if (['admin', 'doctor'].includes(user?.role)) {
@@ -2707,7 +2710,7 @@ function App() {
     try {
       if (isStatusOnlyChange) {
         await persistAppointmentStatus(appointmentId, nextStatus)
-        setAppointmentAdminStatus(`Appointment #${appointmentId} updated to ${appointmentStatusLabel(nextStatus)}.`)
+        setAppointmentAdminStatus(`${formatAppointmentRef(appointmentId)} updated to ${appointmentStatusLabel(nextStatus)}.`)
         return
       }
       const response = await apiFetch(`${API_BASE}/api/admin/appointments/${appointmentId}`, {
@@ -2727,7 +2730,7 @@ function App() {
         return
       }
       syncUpdatedAppointment(appointmentId, data.appointment)
-      setAppointmentAdminStatus(`Appointment #${appointmentId} updated.`)
+      setAppointmentAdminStatus(`${formatAppointmentRef(appointmentId)} updated.`)
       await Promise.all([loadDoctorSchedule(), loadQueue(), loadOpsDashboard()])
     } catch {
       setAppointmentAdminStatus('Unable to update appointment.')
@@ -2739,7 +2742,7 @@ function App() {
     setDoctorConsoleStatus('')
     try {
       await persistAppointmentStatus(appointmentId, status, { preserveDraft: true })
-      setDoctorConsoleStatus(`Appointment #${appointmentId} updated to ${status}.`)
+      setDoctorConsoleStatus(`${formatAppointmentRef(appointmentId)} updated to ${status}.`)
       await (activeConsultId ? loadAppointmentTimeline(activeConsultId) : Promise.resolve())
     } catch {
       setDoctorConsoleStatus('Unable to update appointment status.')
@@ -2835,6 +2838,61 @@ function App() {
     }
   }
 
+  const loadAbhaReviewQueue = async () => {
+    try {
+      const response = await apiFetch(`${API_BASE}/api/admin/abha/review-queue`)
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || 'Unable to load ABHA review queue.')
+      setAbhaReviewQueue(data.queue || [])
+      setAbhaReviewStatus('')
+    } catch (error) {
+      setAbhaReviewStatus(error.message || 'Unable to load ABHA review queue.')
+    }
+  }
+
+  const loadPatientAbhaHistory = async (patientId) => {
+    try {
+      const response = await apiFetch(`${API_BASE}/api/admin/abha/${patientId}/history`)
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || 'Unable to load ABHA history.')
+      setPatientAbhaHistoryData((prev) => ({ ...prev, [patientId]: data.history || [] }))
+      setPatientPanelStatus('')
+    } catch (error) {
+      setPatientPanelStatus(error.message || 'Unable to load ABHA history.')
+    }
+  }
+
+  const reviewPatientAbha = async (patientId, decision, note = '') => {
+    setPatientPanelStatus('')
+    setAbhaReviewStatus('')
+    try {
+      const response = await apiFetch(`${API_BASE}/api/admin/abha/${patientId}/review`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ decision, note }),
+      })
+      const data = await response.json()
+      if (!response.ok) {
+        const message = data.error || 'Unable to review ABHA request.'
+        setPatientPanelStatus(message)
+        setAbhaReviewStatus(message)
+        return
+      }
+      if (data.profile) {
+        setPatientProfileData((prev) => ({ ...prev, [patientId]: data.profile }))
+      }
+      setAbhaReviewNotes((prev) => ({ ...prev, [patientId]: '' }))
+      const message = data.message || (decision === 'approve' ? 'ABHA marked verified.' : 'ABHA sent back for correction.')
+      setPatientPanelStatus(message)
+      setAbhaReviewStatus(message)
+      await Promise.all([loadAbhaReviewQueue(), loadPatientAbhaHistory(patientId)])
+    } catch (error) {
+      const message = error?.message || 'Unable to review ABHA request.'
+      setPatientPanelStatus(message)
+      setAbhaReviewStatus(message)
+    }
+  }
+
   const loadPatientHistoryView = async (patientId) => {
     try {
       const response = await apiFetch(`${API_BASE}/api/triage/history/${patientId}`)
@@ -2917,7 +2975,7 @@ function App() {
     }
     if (action === 'profile') {
       openPatientModal(patient.id, 'profile')
-      await loadPatientProfileView(patient.id)
+      await Promise.all([loadPatientProfileView(patient.id), loadPatientAbhaHistory(patient.id)])
       return
     }
     if (action === 'bill' || action === 'addPayment' || action === 'addEstimate' || action === 'relief') {
@@ -3565,7 +3623,11 @@ function App() {
   return (
     <div className="app">
       <main>
-        {!user ? (
+        {!authHydrated ? (
+          <section className="grid">
+            <div className="doctor-console-empty">Restoring hospital workspace…</div>
+          </section>
+        ) : !user ? (
           <section className="ops-auth-shell">
             <div className="ops-auth-hero">
               <div className="ops-auth-copy">
@@ -3637,6 +3699,81 @@ function App() {
               <p className="error">This frontend is only for hospital operations roles.</p>
             </div>
           </section>
+        ) : liveConsultParams.enabled && user?.role === 'doctor' ? (
+          <Suspense fallback={workspaceFallback}>
+            <DoctorConsoleWorkspace
+              consoleKind={activeDoctorConsoleKind}
+              doctorConsoleStatus={doctorConsoleStatus}
+              appointments={doctorConsoleWorklist}
+              activeConsultAppointment={activeDoctorConsoleConsult}
+              selectedConsultValue={activeDoctorConsoleSelectionKey}
+              activeEncounterDetail={activeEncounterDetail}
+              activePatientHistory={activeRemoteConsultId ? activeRemoteConsultHistory : activePatientHistory}
+              activeHistoryEncounterDetail={activeHistoryEncounterDetail}
+              activeHistoryEncounterId={activeHistoryEncounterId}
+              openDoctorConsult={selectDoctorConsoleConsult}
+              openHistoryEncounter={openHistoryEncounter}
+              encounterForm={encounterForm}
+              setEncounterForm={setEncounterForm}
+              departmentConsoleForm={departmentConsoleForm}
+              setDepartmentConsoleForm={setDepartmentConsoleForm}
+              saveDepartmentConsoleForm={saveDepartmentConsoleForm}
+              saveEncounterSummary={saveEncounterSummary}
+              noteDraft={noteDraft}
+              setNoteDraft={setNoteDraft}
+              signatureDraft={signatureDraft}
+              setSignatureDraft={setSignatureDraft}
+              noteAssistQuery={noteAssistQuery}
+              setNoteAssistQuery={setNoteAssistQuery}
+              noteAssistSuggestions={noteAssistSuggestions}
+              noteAssistStatus={noteAssistStatus}
+              noteAssistLoading={noteAssistLoading}
+              dismissedNoteAssistIds={dismissedNoteAssistIds}
+              loadNoteAssistSuggestions={loadNoteAssistSuggestions}
+              applyNoteAssistSuggestion={applyNoteAssistSuggestion}
+              applyAssistComplaintTemplate={applyAssistComplaintTemplate}
+              applyAssistDiagnosisSuggestion={applyAssistDiagnosisSuggestion}
+              stageAssistOrderSuggestion={stageAssistOrderSuggestion}
+              applyAssistPrescriptionTemplate={applyAssistPrescriptionTemplate}
+              dismissNoteAssistSuggestion={dismissNoteAssistSuggestion}
+              noteRefineLoading={noteRefineLoading}
+              noteRefineStatus={noteRefineStatus}
+              refineDoctorNoteDraft={refineDoctorNoteDraft}
+              submitEncounterNote={submitEncounterNote}
+              prescriptionDraft={prescriptionDraft}
+              setPrescriptionDraft={setPrescriptionDraft}
+              addPrescriptionItem={addPrescriptionItem}
+              removePrescriptionItem={removePrescriptionItem}
+              updatePrescriptionItem={updatePrescriptionItem}
+              submitPrescription={submitPrescription}
+              copyPreviousPrescription={copyPreviousPrescription}
+              updateAppointmentStatus={updateDoctorAppointmentStatus}
+              orderDraft={orderDraft}
+              setOrderDraft={setOrderDraft}
+              submitEncounterOrder={submitEncounterOrder}
+              recordPediatricImmunization={recordPediatricImmunization}
+              reportInsights={doctorReportInsights}
+              reportInsightsStatus={doctorReportInsightsStatus}
+              reportInsightsMonths={doctorReportInsightsMonths}
+              setReportInsightsMonths={setDoctorReportInsightsMonths}
+              apiBase={API_BASE}
+              authToken={token}
+              currentUserId={user?.id}
+              isRemoteConsult={Boolean(activeRemoteConsultId)}
+              remoteConsultConsentSummary={remoteConsultConsentSummary}
+              acceptRemoteConsultConsent={acceptRemoteConsultConsent}
+              remoteConsultMessages={remoteConsultMessages}
+              remoteConsultMessageText={remoteConsultMessageText}
+              setRemoteConsultMessageText={setRemoteConsultMessageText}
+              sendRemoteConsultMessage={sendRemoteConsultMessage}
+              remoteConsultMessageStatus={remoteConsultMessageStatus}
+              updateRemoteConsultStatus={updateRemoteConsultStatus}
+              openStandaloneLiveConsult={openStandaloneLiveConsult}
+              forceActiveTab={liveConsultParams.tab}
+              standaloneLiveMode={liveConsultParams.enabled}
+              autoStartStandalone={liveConsultParams.autoStart}
+            />
+          </Suspense>
         ) : (
           <OpsShell
             user={user}
@@ -3651,7 +3788,7 @@ function App() {
             sidebarGroups={sidebarGroups}
             workspaceOptions={workspaceOptions}
           >
-
+            <Suspense fallback={workspaceFallback}>
 
               {['admin', 'front_desk'].includes(user.role) && activeWorkspace === 'patients' && (
                 <PatientAdministrationWorkspace
@@ -3660,6 +3797,12 @@ function App() {
                   patientSearch={patientSearch}
                   setPatientSearch={setPatientSearch}
                   loadPatients={loadPatients}
+                  abhaReviewQueue={abhaReviewQueue}
+                  abhaReviewStatus={abhaReviewStatus}
+                  loadAbhaReviewQueue={loadAbhaReviewQueue}
+                  reviewPatientAbha={reviewPatientAbha}
+                  abhaReviewNotes={abhaReviewNotes}
+                  setAbhaReviewNotes={setAbhaReviewNotes}
                   setShowCreatePatientModal={setShowCreatePatientModal}
                   handlePatientQuickAction={handlePatientQuickAction}
                   activePatient={activePatient}
@@ -3673,6 +3816,7 @@ function App() {
                   loadPatientHistoryView={loadPatientHistoryView}
                   loadPatientDocumentsView={loadPatientDocumentsView}
                   downloadAdminRecord={downloadAdminRecord}
+                  patientAbhaHistoryData={patientAbhaHistoryData}
                   updatePatientDraft={updatePatientDraft}
                   savePatient={savePatient}
                   user={user}
@@ -3834,6 +3978,10 @@ function App() {
                 dismissedNoteAssistIds={dismissedNoteAssistIds}
                 loadNoteAssistSuggestions={loadNoteAssistSuggestions}
                 applyNoteAssistSuggestion={applyNoteAssistSuggestion}
+                applyAssistComplaintTemplate={applyAssistComplaintTemplate}
+                applyAssistDiagnosisSuggestion={applyAssistDiagnosisSuggestion}
+                stageAssistOrderSuggestion={stageAssistOrderSuggestion}
+                applyAssistPrescriptionTemplate={applyAssistPrescriptionTemplate}
                 dismissNoteAssistSuggestion={dismissNoteAssistSuggestion}
                 noteRefineLoading={noteRefineLoading}
                 noteRefineStatus={noteRefineStatus}
@@ -3931,17 +4079,21 @@ function App() {
                 reportInsightsStatus={doctorReportInsightsStatus}
                 reportInsightsMonths={doctorReportInsightsMonths}
                 setReportInsightsMonths={setDoctorReportInsightsMonths}
+                apiBase={API_BASE}
+                authToken={token}
+                currentUserId={user?.id}
                 isRemoteConsult={Boolean(activeRemoteConsultId)}
                 remoteConsultConsentSummary={remoteConsultConsentSummary}
                 acceptRemoteConsultConsent={acceptRemoteConsultConsent}
                 remoteConsultMessages={remoteConsultMessages}
-                remoteConsultCallEvents={remoteConsultCallEvents}
                 remoteConsultMessageText={remoteConsultMessageText}
                 setRemoteConsultMessageText={setRemoteConsultMessageText}
                 sendRemoteConsultMessage={sendRemoteConsultMessage}
-                sendRemoteConsultCallEvent={sendRemoteConsultCallEvent}
                 remoteConsultMessageStatus={remoteConsultMessageStatus}
                 updateRemoteConsultStatus={updateRemoteConsultStatus}
+                openStandaloneLiveConsult={openStandaloneLiveConsult}
+                standaloneLiveMode={false}
+                autoStartStandalone={false}
               />
             )}
 
@@ -3994,6 +4146,7 @@ function App() {
                 resolveHospitalAssetUrl={resolveHospitalAssetUrl}
               />
             )}
+            </Suspense>
 
           </OpsShell>
       )}
@@ -4054,6 +4207,11 @@ function App() {
           patientHistoryData={patientHistoryData}
           patientDocumentsData={patientDocumentsData}
           downloadAdminRecord={downloadAdminRecord}
+          patientAbhaHistoryData={patientAbhaHistoryData}
+          abhaReviewNotes={abhaReviewNotes}
+          setAbhaReviewNotes={setAbhaReviewNotes}
+          loadPatientAbhaHistory={loadPatientAbhaHistory}
+          reviewPatientAbha={reviewPatientAbha}
           handlePatientQuickAction={handlePatientQuickAction}
           updatePatientDraft={updatePatientDraft}
           savePatient={savePatient}

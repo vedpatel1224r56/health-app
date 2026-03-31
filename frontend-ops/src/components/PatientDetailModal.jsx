@@ -1,3 +1,5 @@
+const formatPatientDisplayId = (patient) => patient?.patient_uid || `PID${String(patient?.id || '').padStart(6, '0')}`
+
 export function PatientDetailModal({
   activePatient,
   setActivePatientId,
@@ -12,6 +14,11 @@ export function PatientDetailModal({
   patientHistoryData,
   patientDocumentsData,
   downloadAdminRecord,
+  patientAbhaHistoryData,
+  abhaReviewNotes,
+  setAbhaReviewNotes,
+  loadPatientAbhaHistory,
+  reviewPatientAbha,
   handlePatientQuickAction,
   updatePatientDraft,
   savePatient,
@@ -25,7 +32,7 @@ export function PatientDetailModal({
         <div className="section-head compact">
           <div>
             <p className="eyebrow">Patient detail</p>
-            <h2>{activePatient.patient_uid || `PID${activePatient.id}`} • {activePatient.nameDraft || activePatient.name}</h2>
+            <h2>{formatPatientDisplayId(activePatient)} • {activePatient.nameDraft || activePatient.name}</h2>
             <p className="panel-sub">
               {activePatient.created_at ? `Registered ${new Date(activePatient.created_at).toLocaleDateString()}` : ''}
             </p>
@@ -36,7 +43,7 @@ export function PatientDetailModal({
         <div className="action-row">
           <button className={activePatientPanel === 'view' ? 'primary' : 'ghost'} type="button" onClick={() => setActivePatientPanel('view')}>View</button>
           <button className={activePatientPanel === 'edit' ? 'primary' : 'ghost'} type="button" onClick={() => setActivePatientPanel('edit')}>Edit</button>
-          <button className={activePatientPanel === 'profile' ? 'primary' : 'ghost'} type="button" onClick={() => { setActivePatientPanel('profile'); void loadPatientProfileView(activePatient.id) }}>Profile</button>
+          <button className={activePatientPanel === 'profile' ? 'primary' : 'ghost'} type="button" onClick={() => { setActivePatientPanel('profile'); void Promise.all([loadPatientProfileView(activePatient.id), loadPatientAbhaHistory(activePatient.id)]) }}>Profile</button>
           <button className={activePatientPanel === 'records' ? 'primary' : 'ghost'} type="button" onClick={() => { setActivePatientPanel('records'); void loadPatientHistoryView(activePatient.id) }}>Records</button>
           <button className={activePatientPanel === 'documents' ? 'primary' : 'ghost'} type="button" onClick={() => { setActivePatientPanel('documents'); void loadPatientDocumentsView(activePatient.id) }}>Documents</button>
           <button className={activePatientPanel === 'more' ? 'primary' : 'ghost'} type="button" onClick={() => setActivePatientPanel('more')}>More</button>
@@ -49,7 +56,7 @@ export function PatientDetailModal({
             <div className="history-card">
               <p className="history-headline">Patient overview</p>
               <p className="micro">Name: {activePatient.nameDraft || activePatient.name || '-'}</p>
-              <p className="micro">Patient ID: {activePatient.patient_uid || `PID${activePatient.id}`}</p>
+              <p className="micro">Patient ID: {formatPatientDisplayId(activePatient)}</p>
               <p className="micro">DOB: {activePatient.dateOfBirthDraft || '-'}</p>
               <p className="micro">Age: {activePatient.ageDraft === '' || activePatient.ageDraft == null ? '-' : `${activePatient.ageDraft}y 0m`}</p>
             </div>
@@ -65,10 +72,73 @@ export function PatientDetailModal({
                   <p className="micro">ABHA status: {String(patientProfileData[activePatient.id].abha_status || 'not_linked').replace(/_/g, ' ')}</p>
                   <p className="micro">ABHA no.: {patientProfileData[activePatient.id].abha_number || '-'}</p>
                   <p className="micro">ABHA address: {patientProfileData[activePatient.id].abha_address || '-'}</p>
+                  {patientProfileData[activePatient.id].abha_last_error ? (
+                    <p className="micro">Review note: {patientProfileData[activePatient.id].abha_last_error}</p>
+                  ) : null}
                   <p className="micro">Sex: {patientProfileData[activePatient.id].sex || '-'}</p>
                   <p className="micro">Body metrics: {[patientProfileData[activePatient.id].weight_kg ? `${patientProfileData[activePatient.id].weight_kg} kg` : '', patientProfileData[activePatient.id].height_cm ? `${patientProfileData[activePatient.id].height_cm} cm` : ''].filter(Boolean).join(' • ') || '-'}</p>
                   <p className="micro">Conditions: {(patientProfileData[activePatient.id].conditions || []).join(', ') || '-'}</p>
                   <p className="micro">Allergies: {(patientProfileData[activePatient.id].allergies || []).join(', ') || '-'}</p>
+                  {String(patientProfileData[activePatient.id].abha_status || '').toLowerCase() === 'pending_verification' ? (
+                    <div className="history-card subtle">
+                      <p className="history-headline">ABHA review action</p>
+                      <textarea
+                        rows={3}
+                        placeholder="Explain what the patient should correct if you reject this request."
+                        value={abhaReviewNotes[activePatient.id] || ''}
+                        onChange={(event) => setAbhaReviewNotes((prev) => ({ ...prev, [activePatient.id]: event.target.value }))}
+                      />
+                      <div className="action-row">
+                        <button className="primary" type="button" onClick={() => void reviewPatientAbha(activePatient.id, 'approve')}>
+                          Approve ABHA
+                        </button>
+                        <button
+                          className="ghost"
+                          type="button"
+                          onClick={() =>
+                            void reviewPatientAbha(
+                              activePatient.id,
+                              'reject',
+                              (abhaReviewNotes[activePatient.id] || '').trim() || 'Please review and correct ABHA details.',
+                            )
+                          }
+                        >
+                          Reject ABHA
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+                  <div className="history-card subtle">
+                    <div className="section-head compact">
+                      <div>
+                        <p className="history-headline">ABHA review timeline</p>
+                        <p className="micro">Recent ABHA actions and review notes for this patient.</p>
+                      </div>
+                      <button className="ghost" type="button" onClick={() => void loadPatientAbhaHistory(activePatient.id)}>
+                        Refresh
+                      </button>
+                    </div>
+                    <div className="history-list compact-list">
+                      {(patientAbhaHistoryData[activePatient.id] || []).map((item) => (
+                        <div key={`patient-abha-history-${activePatient.id}-${item.id}`} className="history-card">
+                          <p className="history-headline">{String(item.action || '').replace(/_/g, ' ')}</p>
+                          <p className="micro">
+                            {item.createdAt ? new Date(item.createdAt).toLocaleString() : '-'} • {String(item.status || '').replace(/_/g, ' ')}
+                          </p>
+                          {item.payload?.reviewedByName ? (
+                            <p className="micro">
+                              Reviewed by {item.payload.reviewedByName}
+                              {item.payload.reviewedByRole ? ` • ${String(item.payload.reviewedByRole).replace(/_/g, ' ')}` : ''}
+                            </p>
+                          ) : null}
+                          {item.notes ? <p className="micro">{item.notes}</p> : null}
+                        </div>
+                      ))}
+                      {(!patientAbhaHistoryData[activePatient.id] || patientAbhaHistoryData[activePatient.id].length === 0) ? (
+                        <p className="micro">No ABHA history available yet.</p>
+                      ) : null}
+                    </div>
+                  </div>
                 </>
               ) : (
                 <p className="micro">No profile snapshot found.</p>
@@ -355,7 +425,7 @@ export function PatientDetailModal({
                   .filter((candidate) => candidate.id !== activePatient.id)
                   .map((candidate) => (
                     <option key={`merge-modal-${activePatient.id}-${candidate.id}`} value={candidate.id}>
-                      {candidate.patient_uid || `PID${candidate.id}`} • {candidate.nameDraft || candidate.name}
+                      {formatPatientDisplayId(candidate)} • {candidate.nameDraft || candidate.name}
                     </option>
                   ))}
               </select>

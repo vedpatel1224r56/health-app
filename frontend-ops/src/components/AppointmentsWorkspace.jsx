@@ -1,5 +1,7 @@
 import { appointmentStatusLabel } from '../opsConfig'
 
+const formatAppointmentRef = (appointmentId) => String(appointmentId || '').padStart(3, '0')
+
 export function AppointmentsWorkspace({
   appointmentAdminStatus,
   appointmentFilters,
@@ -71,7 +73,7 @@ export function AppointmentsWorkspace({
         {appointmentAdminStatus && <p className="micro">{appointmentAdminStatus}</p>}
         <div className="table-shell">
           <div className="admin-table admin-table-head">
-            <span>ID</span>
+            <span>Ref</span>
             <span>Patient</span>
             <span>Status</span>
             <span>Department</span>
@@ -96,7 +98,7 @@ export function AppointmentsWorkspace({
             const displayDoctor = selectedDoctor?.name || appointment.doctor_name || ''
             return (
               <div key={`admin-appt-${appointment.id}`} className="admin-table admin-table-row">
-                <span className="table-cell strong">#{appointment.id}</span>
+                <span className="table-cell strong">{formatAppointmentRef(appointment.id)}</span>
                 <span className="table-cell">
                   {appointment.patient_name || 'Patient'}
                   {appointment.member_name ? ` (${appointment.member_name})` : ''}

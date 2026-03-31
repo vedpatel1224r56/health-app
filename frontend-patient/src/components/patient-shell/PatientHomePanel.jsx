@@ -11,6 +11,8 @@ export function PatientHomePanel({
   lastGuidance,
   t,
   openProfileEditor,
+  abhaHistory,
+  requestAbhaVerification,
   sharePass,
   sharePassStatus,
   shareQr,
@@ -34,6 +36,10 @@ export function PatientHomePanel({
   const abhaStatusLabel =
     abhaStatus === "verified"
       ? "Verified"
+      : abhaStatus === "pending_verification"
+        ? "Pending verification"
+      : abhaStatus === "verification_rejected"
+        ? "Needs correction"
       : abhaStatus === "self_reported"
         ? "Self reported"
         : "Not linked";
@@ -120,9 +126,22 @@ export function PatientHomePanel({
           <p className="history-headline">ABHA link status</p>
           <p className={`member-metric abha-status-value is-${abhaStatus}`}>{abhaStatusLabel}</p>
           <p className="micro">{abhaSummary}</p>
-          <button type="button" className="ghost" onClick={openProfileEditor}>
-            Manage ABHA
-          </button>
+          <div className="action-row">
+            <button type="button" className="ghost" onClick={openProfileEditor}>
+              Manage ABHA
+            </button>
+            {abhaStatus !== "verified" ? (
+              <button
+                type="button"
+                className="secondary"
+                onClick={requestAbhaVerification}
+                disabled={!(profileForm?.abhaNumber || profileForm?.abhaAddress) || abhaStatus === "pending_verification"}
+              >
+                {abhaStatus === "pending_verification" ? "Pending" : abhaStatus === "verification_rejected" ? "Request again" : "Request verification"}
+              </button>
+            ) : null}
+          </div>
+          {abhaHistory?.[0]?.notes ? <p className="micro">{abhaHistory[0].notes}</p> : null}
         </article>
 
         <article className="pass-card patient-surface-card">

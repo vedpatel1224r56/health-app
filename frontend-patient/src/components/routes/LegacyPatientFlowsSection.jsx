@@ -14,6 +14,8 @@ export function LegacyPatientFlowsSection(props) {
     updateProfileField,
     setProfileForm,
     profileStatus,
+    abhaHistory,
+    requestAbhaVerification,
     history,
     visibleHistory,
     historyExpanded,
@@ -85,6 +87,8 @@ export function LegacyPatientFlowsSection(props) {
           updateProfileField={updateProfileField}
           setProfileForm={setProfileForm}
           profileStatus={profileStatus}
+          abhaHistory={abhaHistory}
+          requestAbhaVerification={requestAbhaVerification}
         />
         <div className="panel result">
           <h2>{t("historyTitle")}</h2>

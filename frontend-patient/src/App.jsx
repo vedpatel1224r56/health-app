@@ -105,6 +105,7 @@ function App() {
 
   const [profileForm, setProfileForm] = useState(defaultProfileForm());
   const [profileStatus, setProfileStatus] = useState("");
+  const [abhaHistory, setAbhaHistory] = useState([]);
   const [profileEditMode, setProfileEditMode] = useState(false);
   const mapProfilePayloadToForm = (profile = {}, account = user) => ({
     fullName: profile.name || account?.name || "",
@@ -206,7 +207,6 @@ function App() {
   const [careRequestMode, setCareRequestMode] = useState("in_person");
   const [activeConsultId, setActiveConsultId] = useState(null);
   const [consultMessages, setConsultMessages] = useState([]);
-  const [consultCallEvents, setConsultCallEvents] = useState([]);
   const [consultMessageText, setConsultMessageText] = useState("");
   const [consultConsentSummary, setConsultConsentSummary] = useState(null);
   const [consultMessageStatus, setConsultMessageStatus] = useState("");
@@ -1086,6 +1086,27 @@ function App() {
     }
   };
 
+  const updateAppointmentStatus = async (appointmentId, status) => {
+    if (!authToken || !appointmentId || !status) return;
+    setOpsQueueStatus("");
+    try {
+      const response = await apiFetch(`${API_BASE}/api/appointments/${appointmentId}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setOpsQueueStatus(data.error || "Unable to update appointment.");
+        return;
+      }
+      setOpsQueueStatus(`Appointment ${appointmentId} updated to ${String(status).replace(/_/g, " ")}.`);
+      await Promise.all([loadAppointments(), loadAdminOps(), loadOpsQueue()]);
+    } catch (error) {
+      setOpsQueueStatus("Network error. Check backend connection.");
+    }
+  };
+
   const updateProfileField = (key, value) =>
     setProfileForm((prev) => ({ ...prev, [key]: value }));
   const updateTeleField = (key, value) =>
@@ -1497,6 +1518,18 @@ function App() {
     }
   };
 
+  const loadAbhaHistory = async () => {
+    if (!authToken) return;
+    try {
+      const response = await apiFetch(`${API_BASE}/api/abha/history`);
+      if (!response.ok) return;
+      const data = await response.json();
+      setAbhaHistory(data.history || []);
+    } catch (error) {
+      // non-blocking
+    }
+  };
+
   const loadHistory = async (userId) => {
     setHistoryStatus("");
     try {
@@ -1713,6 +1746,7 @@ function App() {
     uploadRecord,
     deleteRecord,
     generateSharePass,
+    requestAbhaVerification,
   } = useProfileSectionActions({
     apiBase: API_BASE,
     apiFetch,
@@ -1736,6 +1770,7 @@ function App() {
     setSharePass,
     setShareQr,
     mapProfilePayloadToForm,
+    loadAbhaHistory,
   });
 
   const {
@@ -1761,6 +1796,118 @@ function App() {
     user,
     fallbackTriage,
   });
+
+  const handlePhotoChange = (event) => {
+    const file = event?.target?.files?.[0] || null;
+    setTriageForm((prev) => {
+      if (prev.photoPreview && prev.photoPreview.startsWith("blob:")) {
+        try {
+          URL.revokeObjectURL(prev.photoPreview);
+        } catch {
+          // ignore local preview cleanup issues
+        }
+      }
+      return {
+        ...prev,
+        photoFile: file,
+        photoPreview: file ? URL.createObjectURL(file) : "",
+      };
+    });
+  };
+
+  const removeTriagePhoto = () => {
+    setTriageForm((prev) => {
+      if (prev.photoPreview && prev.photoPreview.startsWith("blob:")) {
+        try {
+          URL.revokeObjectURL(prev.photoPreview);
+        } catch {
+          // ignore local preview cleanup issues
+        }
+      }
+      return {
+        ...prev,
+        photoFile: null,
+        photoPreview: "",
+      };
+    });
+  };
+
+  const downloadVisitPdf = () => {
+    if (!triageResult) return;
+    const openedAt = new Date().toLocaleString();
+    const suggestions = Array.isArray(triageResult.suggestions)
+      ? triageResult.suggestions.map((item) => `<li>${String(item)}</li>`).join("")
+      : "";
+    const photoNote = triageForm.photoFile ? "<p><strong>Patient uploaded photo:</strong> Yes</p>" : "";
+    const popup = window.open("", "_blank", "noopener,noreferrer,width=900,height=720");
+    if (!popup) return;
+    popup.document.write(`
+      <!doctype html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>Visit Summary</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 32px; color: #182735; }
+            h1, h2, h3, p { margin: 0; }
+            .stack { display: grid; gap: 14px; }
+            .card { border: 1px solid #d7e2eb; border-radius: 16px; padding: 18px; }
+            .muted { color: #5a6d7f; }
+            ul { margin: 10px 0 0 18px; padding: 0; }
+          </style>
+        </head>
+        <body>
+          <div class="stack">
+            <div>
+              <h1>SehatSaathi Visit Summary</h1>
+              <p class="muted">Generated ${openedAt}</p>
+            </div>
+            <div class="card stack">
+              <div>
+                <h2>${String(triageResult.headline || "Clinical guidance summary")}</h2>
+                <p class="muted">${String(triageResult.urgency || "-")}</p>
+              </div>
+              <div>
+                <h3>Summary</h3>
+                <p>${String(triageResult.disclaimer || "")}</p>
+              </div>
+              <div>
+                <h3>Suggestions</h3>
+                <ul>${suggestions}</ul>
+              </div>
+            </div>
+            <div class="card stack">
+              <h3>Triage context</h3>
+              <p><strong>Type:</strong> ${triageType}</p>
+              <p><strong>Age:</strong> ${triageForm.age || "-"}</p>
+              <p><strong>Sex:</strong> ${triageForm.sex || "-"}</p>
+              <p><strong>Duration:</strong> ${triageForm.durationDays || dentalForm.durationDays || "-"}</p>
+              ${photoNote}
+            </div>
+          </div>
+        </body>
+      </html>
+    `);
+    popup.document.close();
+    popup.focus();
+    popup.print();
+  };
+
+  const handleGuidanceFeedback = async (helpful) => {
+    setFeedbackStatus(
+      helpful
+        ? "Thanks. We’ve marked this guidance as helpful."
+        : "Thanks. We’ve marked this guidance for review.",
+    );
+  };
+
+  const handleVisitFollowup = async (visitHappened) => {
+    setFeedbackStatus(
+      visitHappened
+        ? "Thanks. We’ve recorded that you followed up after this guidance."
+        : "Okay. We’ve recorded that you have not visited yet.",
+    );
+  };
 
   const loadNotifications = async () => {
     if (!authToken) return;
@@ -1826,24 +1973,6 @@ function App() {
     }
   };
 
-  const loadConsultCallEvents = async (consultId) => {
-    if (!consultId || !authToken) return;
-    try {
-      const response = await apiFetch(`${API_BASE}/api/teleconsults/${consultId}/call-events`);
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        setConsultMessageStatus(data.error || "Unable to load audio call state.");
-        setConsultCallEvents([]);
-        return;
-      }
-      const data = await response.json();
-      setConsultCallEvents(data.events || []);
-    } catch {
-      setConsultMessageStatus("Unable to load audio call state.");
-      setConsultCallEvents([]);
-    }
-  };
-
   const loadConsultConsent = async (consultId) => {
     if (!consultId || !authToken) return;
     try {
@@ -1904,25 +2033,6 @@ function App() {
       await loadTeleconsults();
     } catch (error) {
       setConsultMessageStatus("Network error. Check backend connection.");
-    }
-  };
-
-  const sendConsultCallEvent = async ({ consultId = null, sessionId, eventType, payload = null }) => {
-    const targetConsultId = Number(consultId || activeConsultId || 0);
-    if (!authToken || !targetConsultId) return { ok: false, error: "Consult not ready." };
-    try {
-      const response = await apiFetch(`${API_BASE}/api/teleconsults/${targetConsultId}/call-events`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId, eventType, payload }),
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        return { ok: false, error: data.error || "Unable to send audio signal." };
-      }
-      return { ok: true, event: data.event };
-    } catch {
-      return { ok: false, error: "Unable to send audio signal." };
     }
   };
 
@@ -2139,6 +2249,104 @@ function App() {
       });
     } catch (error) {
       setOpsQueueStatus("Unable to load front desk queue.");
+    }
+  };
+
+  const updateBillingDraft = (appointmentId, key, value) => {
+    setBillingDrafts((prev) => ({
+      ...prev,
+      [appointmentId]: {
+        amount: "",
+        status: "unpaid",
+        paymentMethod: "",
+        ...(prev[appointmentId] || {}),
+        [key]: value,
+      },
+    }));
+  };
+
+  const saveBillingForAppointment = async (appointmentId) => {
+    if (!authToken || !appointmentId) return;
+    setOpsQueueStatus("");
+    const draft = billingDrafts[appointmentId] || {};
+    try {
+      const response = await apiFetch(`${API_BASE}/api/appointments/${appointmentId}/billing`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: Number(draft.amount || 0),
+          status: draft.status || "unpaid",
+          paymentMethod: draft.paymentMethod || "",
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setOpsQueueStatus(data.error || "Unable to save billing.");
+        return;
+      }
+      setOpsQueueStatus(`Billing saved for appointment ${appointmentId}.`);
+      await Promise.all([loadOpsQueue(), loadAdminOps(), loadAppointments()]);
+    } catch (error) {
+      setOpsQueueStatus("Network error. Check backend connection.");
+    }
+  };
+
+  const viewReceipt = async (appointmentId) => {
+    if (!authToken || !appointmentId) return;
+    setOpsQueueStatus("");
+    try {
+      const response = await apiFetch(`${API_BASE}/api/appointments/${appointmentId}/receipt`);
+      const data = await response.json();
+      if (!response.ok) {
+        setOpsQueueStatus(data.error || "Unable to load receipt.");
+        return;
+      }
+      const receipt = data.receipt || {};
+      const popup = window.open("", "_blank", "noopener,noreferrer,width=860,height=680");
+      if (!popup) {
+        setOpsQueueStatus("Allow popups to view the receipt.");
+        return;
+      }
+      popup.document.write(`
+        <!doctype html>
+        <html>
+          <head>
+            <meta charset="utf-8" />
+            <title>Appointment Receipt</title>
+            <style>
+              body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 32px; color: #182735; }
+              h1, h2, p { margin: 0; }
+              .stack { display: grid; gap: 14px; }
+              .card { border: 1px solid #d7e2eb; border-radius: 16px; padding: 18px; }
+              .row { display: grid; grid-template-columns: 180px 1fr; gap: 10px; }
+              .muted { color: #5a6d7f; }
+            </style>
+          </head>
+          <body>
+            <div class="stack">
+              <div>
+                <h1>Appointment Receipt</h1>
+                <p class="muted">Generated ${new Date().toLocaleString()}</p>
+              </div>
+              <div class="card stack">
+                <div class="row"><strong>Appointment</strong><span>${receipt.appointmentId || "-"}</span></div>
+                <div class="row"><strong>Patient</strong><span>${receipt.patientName || "-"}</span></div>
+                <div class="row"><strong>Department</strong><span>${receipt.department || "-"}</span></div>
+                <div class="row"><strong>Doctor</strong><span>${receipt.doctorName || "-"}</span></div>
+                <div class="row"><strong>Reason</strong><span>${receipt.reason || "-"}</span></div>
+                <div class="row"><strong>Scheduled</strong><span>${receipt.scheduledAt ? new Date(receipt.scheduledAt).toLocaleString() : "-"}</span></div>
+                <div class="row"><strong>Billing status</strong><span>${receipt.billingStatus || "-"}</span></div>
+                <div class="row"><strong>Amount</strong><span>Rs ${receipt.amount ?? 0}</span></div>
+                <div class="row"><strong>Payment method</strong><span>${receipt.paymentMethod || "-"}</span></div>
+                <div class="row"><strong>Notes</strong><span>${receipt.notes || "-"}</span></div>
+              </div>
+            </div>
+          </body>
+        </html>
+      `);
+      popup.document.close();
+    } catch (error) {
+      setOpsQueueStatus("Network error. Check backend connection.");
     }
   };
 
@@ -2383,6 +2591,7 @@ function App() {
   useEffect(() => {
     if (user?.id) {
       loadProfile(user.id);
+      loadAbhaHistory();
       loadHistory(user.id);
       loadFamilyMembers();
       loadShareHistory();
@@ -2409,6 +2618,7 @@ function App() {
       }
     } else {
       setProfileForm(defaultProfileForm());
+      setAbhaHistory([]);
       setHistory([]);
       setFamilyMembers([]);
       setRecords([]);
@@ -2479,16 +2689,10 @@ function App() {
   useEffect(() => {
     if (!activeConsultId) {
       setConsultMessages([]);
-      setConsultCallEvents([]);
       setConsultConsentSummary(null);
       return;
     }
     loadConsultMessages(activeConsultId);
-    if (String(activeConsult?.mode || "").toLowerCase() === "audio") {
-      loadConsultCallEvents(activeConsultId);
-    } else {
-      setConsultCallEvents([]);
-    }
     loadConsultConsent(activeConsultId);
   }, [activeConsultId, authToken, activeConsult?.mode]);
 
@@ -2526,20 +2730,9 @@ function App() {
         // ignore malformed events
       }
     };
-    const handleCallEvent = (event) => {
-      try {
-        const payload = JSON.parse(event.data || "{}");
-        const nextEvent = payload.callEvent;
-        if (!nextEvent) return;
-        setConsultCallEvents((prev) => (prev.some((item) => item.id === nextEvent.id) ? prev : [...prev, nextEvent]));
-      } catch {
-        // ignore malformed events
-      }
-    };
     stream.addEventListener("message_created", handleMessageCreated);
     stream.addEventListener("consult_updated", handleConsultUpdated);
     stream.addEventListener("consent_updated", handleConsentUpdated);
-    stream.addEventListener("call_event", handleCallEvent);
     stream.onerror = () => {
       setConsultMessageStatus((prev) => prev || "Live consult updates were interrupted. Reopen the consult if needed.");
     };
@@ -2899,6 +3092,8 @@ function App() {
               lastGuidance={lastGuidance}
               t={t}
               openProfileEditor={openProfileEditor}
+              abhaHistory={abhaHistory}
+              requestAbhaVerification={requestAbhaVerification}
               sharePass={sharePass}
               sharePassStatus={sharePassStatus}
               shareQr={shareQr}
@@ -3173,13 +3368,11 @@ function App() {
           closeTeleconsultRoom={closeTeleconsultRoom}
           teleStatusLabel={teleStatusLabel}
           consultMessages={consultMessages}
-          consultCallEvents={consultCallEvents}
           consultConsentSummary={consultConsentSummary}
           acceptConsultConsent={acceptConsultConsent}
           consultMessageText={consultMessageText}
           setConsultMessageText={setConsultMessageText}
           sendConsultMessage={sendConsultMessage}
-          sendConsultCallEvent={sendConsultCallEvent}
           consultMessageStatus={consultMessageStatus}
         />
       ) : null}
@@ -3199,6 +3392,8 @@ function App() {
             profileValidationErrors={profileValidationErrors}
             profileStepReady={profileStepReady}
             profileStatus={profileStatus}
+            abhaHistory={abhaHistory}
+            requestAbhaVerification={requestAbhaVerification}
             t={t}
           />
         ) : null}
@@ -3317,6 +3512,8 @@ function App() {
       updateProfileField,
       setProfileForm,
       profileStatus,
+      abhaHistory,
+      requestAbhaVerification,
       history,
       visibleHistory,
       historyExpanded,

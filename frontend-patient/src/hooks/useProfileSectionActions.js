@@ -27,6 +27,7 @@ export function useProfileSectionActions({
   setSharePass,
   setShareQr,
   mapProfilePayloadToForm,
+  loadAbhaHistory,
 }) {
   const openRecordUploader = useCallback(() => {
     recordsInputRef.current?.click();
@@ -83,8 +84,10 @@ export function useProfileSectionActions({
             pinCode: normalizedPinCode,
             registrationMode: profileForm.registrationMode,
             visitTime: profileForm.visitTime,
-            unitDepartmentId: profileForm.unitDepartmentId ? Number(profileForm.unitDepartmentId) : null,
-            unitDoctorId: profileForm.unitDoctorId ? Number(profileForm.unitDoctorId) : null,
+            // Patient profile editing no longer exposes unit assignment fields,
+            // so do not re-submit hidden stale doctor/department ids.
+            unitDepartmentId: null,
+            unitDoctorId: null,
           }),
         });
         const data = await response.json();
@@ -98,9 +101,11 @@ export function useProfileSectionActions({
         }
         if (data.profile) {
           setProfileForm(mapProfilePayloadToForm(data.profile, data.user || user));
-        } else {
-          await loadProfile(user?.id);
         }
+        await Promise.all([
+          loadProfile(user?.id),
+          loadAbhaHistory ? loadAbhaHistory() : Promise.resolve(),
+        ]);
         setProfileStatus("Profile saved.");
         setProfileEditMode(false);
         setActivePatientTab("home");
@@ -230,11 +235,50 @@ export function useProfileSectionActions({
     user?.id,
   ]);
 
+  const requestAbhaVerification = useCallback(async () => {
+    if (!authToken || !user?.id) {
+      setProfileStatus("Sign in first.");
+      return;
+    }
+
+    setProfileStatus("");
+    try {
+      const response = await apiFetch(`${apiBase}/api/abha/request-verification`, {
+        method: "POST",
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setProfileStatus(data.error || "Unable to request ABHA verification.");
+        return;
+      }
+      if (data.profile) {
+        setProfileForm(mapProfilePayloadToForm(data.profile, user));
+      } else {
+        await loadProfile(user.id);
+      }
+      await loadAbhaHistory();
+      setProfileStatus(data.message || "ABHA verification request submitted.");
+    } catch (error) {
+      setProfileStatus("Network error. Check backend connection.");
+    }
+  }, [
+    apiBase,
+    apiFetch,
+    authToken,
+    loadAbhaHistory,
+    loadProfile,
+    mapProfilePayloadToForm,
+    setProfileForm,
+    setProfileStatus,
+    user,
+  ]);
+
   return {
     openRecordUploader,
     saveProfile,
     uploadRecord,
     deleteRecord,
     generateSharePass,
+    requestAbhaVerification,
   };
 }

@@ -1,3 +1,5 @@
+const formatPatientDisplayId = (patient) => patient?.patient_uid || `PID${String(patient?.id || '').padStart(6, '0')}`
+
 export function VisitRegistrationModal({
   activeVisitPatient,
   setActiveVisitPatientId,
@@ -16,7 +18,7 @@ export function VisitRegistrationModal({
           <div>
             <p className="eyebrow">Visit registration</p>
             <h2>Add visit • {activeVisitPatient.nameDraft || activeVisitPatient.name}</h2>
-            <p className="panel-sub">{activeVisitPatient.patient_uid || `PID${activeVisitPatient.id}`}</p>
+            <p className="panel-sub">{formatPatientDisplayId(activeVisitPatient)}</p>
           </div>
           <button className="ghost" type="button" onClick={() => setActiveVisitPatientId(null)}>Close</button>
         </div>

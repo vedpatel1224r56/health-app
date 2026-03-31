@@ -1,3 +1,5 @@
+const formatAppointmentRef = (appointmentId) => String(appointmentId || '').padStart(3, '0')
+
 export function QueueWorkspace({
   queueStatus,
   queue,
@@ -41,7 +43,7 @@ export function QueueWorkspace({
           {queue.map((item) => (
             <div key={item.id} className="history-card queue-card queue-card-polished">
               <div className="queue-card-top">
-                <p className="history-headline">#{item.id} • {item.patient_name}{item.member_name ? ` (${item.member_name})` : ''}</p>
+                <p className="history-headline">{formatAppointmentRef(item.id)} • {item.patient_name}{item.member_name ? ` (${item.member_name})` : ''}</p>
                 <span className={`status-pill ${item.status}`}>{String(item.status).replace('_', ' ')}</span>
               </div>
               <p className="micro">{item.department_name || 'Department'} • {item.doctor_name ? `Dr. ${item.doctor_name}` : 'No doctor'}</p>

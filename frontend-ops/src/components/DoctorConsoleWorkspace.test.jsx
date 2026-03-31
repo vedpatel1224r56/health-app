@@ -88,4 +88,54 @@ describe('DoctorConsoleWorkspace', () => {
     expect(screen.getByText('Doctor note')).toBeInTheDocument()
     expect(screen.getByLabelText('Clinical note')).toBeInTheDocument()
   })
+
+  it('locks video room actions until doctor consent is accepted', () => {
+    renderWorkspace({
+      isRemoteConsult: true,
+      activeConsultAppointment: {
+        ...baseAppointment,
+        mode: 'video',
+        status: 'scheduled',
+      },
+      remoteConsultConsentSummary: { doctorAccepted: false, patientAccepted: true },
+      remoteConsultMessages: [],
+      remoteConsultMessageText: '',
+      setRemoteConsultMessageText: vi.fn(),
+      sendRemoteConsultMessage: vi.fn(),
+      updateRemoteConsultStatus: vi.fn(),
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /Video/ }))
+
+    expect(screen.getByRole('button', { name: 'Start video' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Mute' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Camera off' })).toBeDisabled()
+    expect(
+      screen.getByText('Acknowledge the teleconsult notice and keep the consult scheduled to unlock live video.'),
+    ).toBeInTheDocument()
+  })
+
+  it('shows live call controls for remote video consults after consent', () => {
+    renderWorkspace({
+      isRemoteConsult: true,
+      activeConsultAppointment: {
+        ...baseAppointment,
+        id: 21,
+        mode: 'video',
+        status: 'scheduled',
+      },
+      remoteConsultConsentSummary: { doctorAccepted: true, patientAccepted: true },
+      remoteConsultMessages: [],
+      remoteConsultMessageText: '',
+      setRemoteConsultMessageText: vi.fn(),
+      sendRemoteConsultMessage: vi.fn(),
+      updateRemoteConsultStatus: vi.fn(),
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /Video/ }))
+
+    expect(screen.getByRole('button', { name: 'Start video' })).toBeEnabled()
+    expect(screen.getByText('Doctor')).toBeInTheDocument()
+    expect(screen.getByText('Patient')).toBeInTheDocument()
+  })
 })

@@ -14,7 +14,7 @@ const tokenize = (value) =>
 const COMMON_TEMPLATES = [
   {
     id: "general-follow-up",
-    label: "Follow-up review note",
+    label: "Follow-up OPD note",
     departmentKeys: ["general", "pediatrics", "surgery"],
     triggers: ["followup", "follow-up", "review", "revisit"],
     noteText:
@@ -73,7 +73,7 @@ const COMMON_TEMPLATES = [
   },
   {
     id: "loose-motion-template",
-    label: "Loose motion / dehydration assessment",
+    label: "Loose motions / dehydration review",
     departmentKeys: ["general", "pediatrics"],
     triggers: ["loose motion", "diarrhoea", "diarrhea", "motions", "dehydration", "stools"],
     noteText:
@@ -88,7 +88,7 @@ const COMMON_TEMPLATES = [
   },
   {
     id: "respiratory-infection-template",
-    label: "Cold / cough / throat infection review",
+    label: "Cold / cough review",
     departmentKeys: ["general", "pediatrics"],
     triggers: ["cold", "cough", "throat pain", "sore throat", "uri", "urti", "runny nose"],
     noteText:
@@ -210,6 +210,22 @@ const PEDIATRIC_TEMPLATES = [
         "Advise timely vaccination as per selected schedule and document follow-up for pending or upcoming doses.",
     },
   },
+  {
+    id: "peds-abdominal-pain",
+    label: "Child abdominal pain note",
+    departmentKeys: ["pediatrics"],
+    triggers: ["abdominal pain", "stomach pain", "tummy pain", "colicky pain", "child abdominal pain"],
+    noteText:
+      "Child reviewed for abdominal pain. Caregiver history covered pain site and duration, vomiting, stool pattern, fever, appetite, urine output, and activity level. Clinical stability and warning signs needing urgent reassessment were discussed.",
+    summaryPatch: {
+      chiefComplaint: "Child with abdominal pain",
+      findings:
+        "Pain pattern, stool/vomiting history, intake, and general activity reviewed.",
+      diagnosisText: "Abdominal pain under evaluation",
+      planText:
+        "Monitor hydration, feeding, stool pattern, and pain progression. Review urgently for persistent vomiting, abdominal distension, lethargy, blood in stool, or worsening pain.",
+    },
+  },
 ];
 
 const SURGERY_TEMPLATES = [
@@ -288,12 +304,28 @@ const SURGERY_TEMPLATES = [
         "Advise planned surgical follow-up as indicated and review urgently for irreducibility, increasing pain, vomiting, abdominal distension, or fever.",
     },
   },
+  {
+    id: "surgery-piles-fissure-review",
+    label: "Piles / fissure review",
+    departmentKeys: ["surgery"],
+    triggers: ["piles", "fissure", "pain while passing stool", "bleeding in stool", "hemorrhoids", "haemorrhoids"],
+    noteText:
+      "Surgical OPD review completed for piles or fissure symptoms. Pain during stool passage, bleeding, constipation history, swelling, fever, and prior treatment were reviewed. Advice regarding stool care, symptom relief, and warning signs was discussed.",
+    summaryPatch: {
+      chiefComplaint: "Piles / fissure symptoms",
+      findings:
+        "Pain, bleeding, bowel habit, and local symptom review completed.",
+      diagnosisText: "Piles / fissure under evaluation",
+      planText:
+        "Advise stool-softening measures, symptom control, and follow-up. Review urgently for heavy bleeding, fever, severe pain, or worsening swelling.",
+    },
+  },
 ];
 
 const GENERAL_TEMPLATES = [
   {
     id: "general-hypertension-followup",
-    label: "Hypertension follow-up",
+    label: "BP follow-up note",
     departmentKeys: ["general"],
     triggers: ["hypertension", "bp", "blood pressure"],
     noteText:
@@ -308,7 +340,7 @@ const GENERAL_TEMPLATES = [
   },
   {
     id: "general-diabetes-followup",
-    label: "Diabetes / sugar follow-up",
+    label: "Sugar follow-up note",
     departmentKeys: ["general"],
     triggers: ["diabetes", "sugar", "high sugar", "blood sugar", "dm"],
     noteText:
@@ -379,6 +411,83 @@ const GENERAL_TEMPLATES = [
         "Respiratory symptom review completed with fever, throat, and breathlessness screen.",
       planText:
         "Advise supportive care and monitoring. Review earlier for high fever, breathing difficulty, chest pain, poor intake, or persistent worsening symptoms.",
+    },
+  },
+  {
+    id: "general-uti-review",
+    label: "Burning urine / UTI note",
+    departmentKeys: ["general"],
+    triggers: ["uti", "urine infection", "burning urine", "burning micturition", "dysuria", "frequent urination"],
+    noteText:
+      "Clinical review completed for burning urination or lower urinary tract symptoms. Onset, frequency, urgency, fever, flank pain, hematuria, hydration, and prior treatment were reviewed. Examination context and need for urine testing or earlier reassessment were discussed.",
+    summaryPatch: {
+      chiefComplaint: "Burning urination / urinary symptoms",
+      findings:
+        "Lower urinary symptom review completed with fever, flank pain, hydration, and red-flag screening.",
+      planText:
+        "Advise hydration, symptomatic review, and investigations as clinically indicated. Review urgently for fever, vomiting, flank pain, reduced urine output, pregnancy-related concern, or worsening symptoms.",
+    },
+  },
+  {
+    id: "general-low-back-pain",
+    label: "Low back pain note",
+    departmentKeys: ["general"],
+    triggers: ["back pain", "low back pain", "lumbar pain", "slip disc", "sciatica", "backache"],
+    noteText:
+      "Clinical review performed for low back pain. Duration, radiation, precipitating activity, mobility limitation, numbness, weakness, bladder/bowel symptoms, and prior treatment were reviewed. Functional impact and red flags requiring escalation were discussed.",
+    summaryPatch: {
+      chiefComplaint: "Low back pain",
+      findings:
+        "Pain pattern, mobility impact, radiation symptoms, and neurological red flags reviewed.",
+      planText:
+        "Conservative care and follow-up advised as clinically appropriate. Review urgently for weakness, saddle symptoms, bladder or bowel changes, severe persistent pain, fever, or trauma-related worsening.",
+    },
+  },
+  {
+    id: "general-headache-review",
+    label: "Headache / migraine review",
+    departmentKeys: ["general"],
+    triggers: ["headache", "migraine", "head pain", "giddiness", "frontal headache", "one sided headache"],
+    noteText:
+      "Clinical review completed for headache symptoms. Onset, duration, severity, associated nausea, photophobia, fever, visual symptoms, blood pressure context, and neurological red flags were reviewed. Symptomatic care and escalation advice were documented.",
+    summaryPatch: {
+      chiefComplaint: "Headache",
+      findings:
+        "Headache pattern reviewed with associated symptoms and neurological red-flag screen.",
+      planText:
+        "Continue symptomatic care and monitoring as clinically appropriate. Review urgently for persistent vomiting, focal neurological deficit, altered sensorium, severe sudden-onset headache, very high blood pressure, or visual symptoms.",
+    },
+  },
+  {
+    id: "general-anemia-weakness",
+    label: "Weakness / anaemia review",
+    departmentKeys: ["general"],
+    triggers: ["weakness", "anemia", "anaemia", "fatigue", "pallor", "low hb", "giddiness"],
+    noteText:
+      "Clinical review completed for weakness, fatigue, or anaemia-related concern. Symptom duration, appetite, menstrual or bleeding history where relevant, pallor, exertional symptoms, prior reports, and comorbidity context were reviewed. Follow-up investigation and counselling needs were documented.",
+    summaryPatch: {
+      chiefComplaint: "Weakness / anaemia review",
+      findings:
+        "Fatigue, pallor-related concern, bleeding history, and prior report context reviewed.",
+      diagnosisText: "Anaemia / weakness under evaluation",
+      planText:
+        "Correlate with available reports and investigate as clinically indicated. Review earlier for breathlessness, chest pain, syncope, active bleeding, worsening fatigue, or poor intake.",
+    },
+  },
+  {
+    id: "general-skin-rash-review",
+    label: "Skin rash / itching note",
+    departmentKeys: ["general"],
+    triggers: ["rash", "itching", "allergy rash", "urticaria", "skin allergy", "red patches"],
+    noteText:
+      "Clinical review completed for rash or itching complaint. Onset, spread, itching severity, fever, new medicines, food/contact exposure, breathing symptoms, and prior similar episodes were reviewed. Examination context and warning signs were discussed.",
+    summaryPatch: {
+      chiefComplaint: "Skin rash / itching",
+      findings:
+        "Rash pattern, itch severity, trigger history, and associated symptoms reviewed.",
+      diagnosisText: "Rash / allergy-related complaint under evaluation",
+      planText:
+        "Advise trigger avoidance, symptomatic care, and review urgently if breathing difficulty, facial swelling, persistent fever, blistering, or worsening rash develops.",
     },
   },
 ];
@@ -579,6 +688,119 @@ const CLINICAL_ASSIST_LIBRARY = {
       },
     ],
   },
+  "general-uti-review": {
+    complaintTemplate: {
+      title: "Burning urine template",
+      complaint: "Burning urination / urinary symptoms",
+      prompts: ["Burning while passing urine", "Frequency / urgency", "Fever", "Flank pain", "Blood in urine / pregnancy context"],
+    },
+    diagnoses: [
+      { label: "Lower urinary tract symptoms under evaluation", confidence: 0.81, rationale: "Safe first-pass framing for dysuria or frequency in OPD." },
+      { label: "Urinary tract infection to rule out", confidence: 0.72, rationale: "Appropriate when burning urination or urgency is the dominant complaint." },
+    ],
+    orders: [
+      { orderType: "lab", itemName: "Urine routine / microscopy", destination: "Laboratory", notes: "Use as first-line urine evaluation where clinically indicated.", why: "Common Indian OPD workup for urinary symptoms." },
+      { orderType: "lab", itemName: "Urine culture", destination: "Laboratory", notes: "Reserve for recurrent, febrile, complicated, or treatment-refractory cases.", why: "Supports targeted treatment when needed." },
+    ],
+    redFlags: ["Fever", "Flank pain", "Vomiting", "Reduced urine output", "Pregnancy with urinary symptoms"],
+    prescriptions: [
+      {
+        label: "Urinary symptom counselling template",
+        instructions: "Hydration advice and warning signs explained. Doctor to confirm whether antibiotics or symptomatic medicines are clinically needed.",
+        items: [],
+      },
+    ],
+  },
+  "general-low-back-pain": {
+    complaintTemplate: {
+      title: "Low back pain template",
+      complaint: "Low back pain",
+      prompts: ["Duration", "Radiation to leg", "Numbness / weakness", "Activity trigger", "Bladder / bowel symptoms"],
+    },
+    diagnoses: [
+      { label: "Mechanical low back pain", confidence: 0.77, rationale: "Common working diagnosis in OPD when pain is activity-related and red flags are absent." },
+      { label: "Low back pain under evaluation", confidence: 0.7, rationale: "Useful broader wording if the full cause is still being clarified." },
+    ],
+    orders: [
+      { orderType: "physio", itemName: "Physiotherapy review", destination: "Physiotherapy", notes: "Consider if conservative management is appropriate.", why: "Useful OPD next step for mechanical pain patterns." },
+      { orderType: "radiology", itemName: "Lumbosacral spine X-ray", destination: "Radiology", notes: "Reserve for persistent symptoms, trauma, or red flags.", why: "Basic imaging when clinically indicated." },
+    ],
+    redFlags: ["Weakness", "Saddle symptoms", "Bladder or bowel changes", "Fever", "History of trauma"],
+    prescriptions: [
+      {
+        label: "Back pain support template",
+        instructions: "Posture, activity modification, and warning signs explained. Doctor to confirm analgesic or muscle-relaxant choice if needed.",
+        items: [],
+      },
+    ],
+  },
+  "general-headache-review": {
+    complaintTemplate: {
+      title: "Headache template",
+      complaint: "Headache",
+      prompts: ["Duration and location", "Nausea / vomiting", "Photophobia", "Fever", "Vision or neurological symptoms"],
+    },
+    diagnoses: [
+      { label: "Headache under evaluation", confidence: 0.76, rationale: "Safe broad framing for outpatient headache review." },
+      { label: "Migraine / primary headache pattern under review", confidence: 0.59, rationale: "Useful when one-sided pain, nausea, or light sensitivity is described." },
+    ],
+    orders: [
+      { orderType: "lab", itemName: "Blood pressure check / vitals review", destination: "Nursing desk", notes: "Important if headache is severe or recurrent.", why: "Simple but clinically relevant first check in OPD." },
+    ],
+    redFlags: ["Sudden severe headache", "Persistent vomiting", "Vision change", "Focal weakness", "Altered sensorium"],
+    prescriptions: [
+      {
+        label: "Headache symptom counselling",
+        instructions: "Hydration, rest, trigger review, and early warning signs explained. Doctor to confirm symptomatic treatment.",
+        items: [],
+      },
+    ],
+  },
+  "general-anemia-weakness": {
+    complaintTemplate: {
+      title: "Weakness / anaemia template",
+      complaint: "Weakness / anaemia review",
+      prompts: ["Duration of weakness", "Pallor / breathlessness", "Bleeding history", "Diet / appetite", "Prior Hb or reports"],
+    },
+    diagnoses: [
+      { label: "Weakness under evaluation", confidence: 0.72, rationale: "Useful safe wording when fatigue is the main symptom." },
+      { label: "Anaemia to evaluate", confidence: 0.69, rationale: "Appropriate if pallor, low Hb history, or chronic fatigue is part of the consult." },
+    ],
+    orders: [
+      { orderType: "lab", itemName: "CBC", destination: "Laboratory", notes: "Baseline evaluation for anaemia or fatigue concern.", why: "First-line test for weakness and pallor in OPD." },
+      { orderType: "lab", itemName: "Iron studies / ferritin", destination: "Laboratory", notes: "Use if anaemia pattern needs clarification.", why: "Common second-line clarification in anaemia workup." },
+    ],
+    redFlags: ["Breathlessness at rest", "Syncope", "Chest pain", "Active bleeding", "Rapid worsening weakness"],
+    prescriptions: [
+      {
+        label: "Weakness follow-up template",
+        instructions: "Diet advice, red-flag counselling, and report review follow-up explained. Doctor to confirm supplements if indicated.",
+        items: [],
+      },
+    ],
+  },
+  "general-skin-rash-review": {
+    complaintTemplate: {
+      title: "Rash / itching template",
+      complaint: "Skin rash / itching",
+      prompts: ["Onset and spread", "Itching severity", "Drug / food / contact trigger", "Fever", "Breathing symptoms / swelling"],
+    },
+    diagnoses: [
+      { label: "Rash / allergy-related complaint under evaluation", confidence: 0.78, rationale: "Safe OPD wording for itchy rash while the cause is still being narrowed." },
+      { label: "Urticarial / allergic pattern to review", confidence: 0.6, rationale: "Useful when itch, wheals, or trigger history suggests an allergic pattern." },
+    ],
+    orders: [
+      { orderType: "lab", itemName: "CBC", destination: "Laboratory", notes: "Use only if fever, systemic symptoms, or prolonged rash needs more evaluation.", why: "Helpful when rash is not a simple isolated allergy complaint." },
+    ],
+    redFlags: ["Breathing difficulty", "Facial swelling", "Blistering", "Persistent fever", "Rapidly spreading rash"],
+    prescriptions: [
+      {
+        label: "Rash symptom counselling",
+        instructions: "Trigger review, skin care, and warning signs explained. Doctor to confirm whether antihistamine or other medicines are clinically needed.",
+        items: [],
+      },
+    ],
+  },
   "peds-jaundice": {
     complaintTemplate: {
       title: "Pediatric jaundice template",
@@ -679,6 +901,22 @@ const CLINICAL_ASSIST_LIBRARY = {
     redFlags: ["Fever at visit", "Previous severe vaccine reaction", "Missed multiple doses", "Caregiver confusion about schedule"],
     prescriptions: [],
   },
+  "peds-abdominal-pain": {
+    complaintTemplate: {
+      title: "Child abdominal pain template",
+      complaint: "Child with abdominal pain",
+      prompts: ["Pain site and duration", "Vomiting", "Stool pattern", "Fever", "Appetite and activity"],
+    },
+    diagnoses: [
+      { label: "Abdominal pain under evaluation", confidence: 0.76, rationale: "Safe pediatric OPD wording when the cause is still being clarified." },
+      { label: "Constipation / gastritis / infective cause to review", confidence: 0.55, rationale: "Useful broad differential framing for common child abdominal pain visits." },
+    ],
+    orders: [
+      { orderType: "lab", itemName: "Urine routine / stool review if indicated", destination: "Laboratory", notes: "Use only when history points toward urinary or stool-related cause.", why: "Helpful targeted workup in child abdominal pain." },
+    ],
+    redFlags: ["Persistent vomiting", "Abdominal distension", "Lethargy", "Blood in stool", "Severe worsening pain"],
+    prescriptions: [],
+  },
   "surgery-post-op-stable": {
     complaintTemplate: {
       title: "Post-op review template",
@@ -748,6 +986,22 @@ const CLINICAL_ASSIST_LIBRARY = {
       { orderType: "radiology", itemName: "Ultrasound local part / abdomen", destination: "Radiology", notes: "Use if swelling details need confirmation.", why: "Helpful for hernia/swelling characterization." },
     ],
     redFlags: ["Irreducible swelling", "Increasing pain", "Vomiting", "Abdominal distension", "Fever"],
+    prescriptions: [],
+  },
+  "surgery-piles-fissure-review": {
+    complaintTemplate: {
+      title: "Piles / fissure template",
+      complaint: "Piles / fissure symptoms",
+      prompts: ["Pain during stool", "Bleeding", "Constipation history", "Swelling", "Fever / discharge"],
+    },
+    diagnoses: [
+      { label: "Piles / fissure under evaluation", confidence: 0.8, rationale: "Direct surgical OPD wording for anal pain or bleeding complaints." },
+      { label: "Constipation-related anorectal symptoms", confidence: 0.6, rationale: "Useful if bowel habit is part of the main clinical picture." },
+    ],
+    orders: [
+      { orderType: "procedure", itemName: "Surgical follow-up / local examination", destination: "Surgery OPD", notes: "Use as indicated after clinical assessment.", why: "Appropriate next step when conservative care or procedure planning is needed." },
+    ],
+    redFlags: ["Heavy bleeding", "Severe pain", "Fever", "Worsening swelling", "Unable to pass stool"],
     prescriptions: [],
   },
 };

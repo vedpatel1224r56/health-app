@@ -92,16 +92,18 @@ export function AppointmentsPanel({
           <select value={careRequestMode} onChange={(event) => setCareRequestMode(event.target.value)}>
             <option value="in_person">{t("careRequestInPerson")}</option>
             <option value="chat">{t("teleModeChat")}</option>
-            <option value="video" disabled>{t("teleModeVideo")} (Coming soon)</option>
+            <option value="video">{t("teleModeVideo")}</option>
             <option value="audio">{t("teleModeAudio")}</option>
           </select>
         </label>
-        {careRequestMode === "chat" || careRequestMode === "audio" ? (
+        {["chat", "audio", "video"].includes(careRequestMode) ? (
           <div className="appointments-coming-soon-note">
             <p className="micro">
               {careRequestMode === "audio"
-                ? "Audio consult is live now. Video consults are being prepared and will open here later."
-                : "Chat consult is live now. Audio consult is live too. Video consults are being prepared and will open here later."}
+                ? "Audio consult opens in a browser meeting room once the consult is scheduled."
+                : careRequestMode === "video"
+                  ? "Video consult opens in a browser meeting room once the consult is scheduled."
+                  : "Chat consult is live now. Audio and video consults open in browser meeting rooms once scheduled."}
             </p>
           </div>
         ) : null}
@@ -339,7 +341,7 @@ export function AppointmentsPanel({
           requestedCare.slice(0, 8).map((consult) => (
             (() => {
               const consultMode = String(consult.mode || "").toLowerCase()
-              const isLiveConsult = ["chat", "audio"].includes(consultMode)
+              const isLiveConsult = ["chat", "audio", "video"].includes(consultMode)
               const consultStatus = String(consult.status || "").toLowerCase()
               const isConsultScheduled = ["scheduled", "in_progress", "completed"].includes(consultStatus)
               const isConsultPaid =

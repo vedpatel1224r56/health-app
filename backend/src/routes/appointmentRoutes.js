@@ -48,6 +48,20 @@ const registerAppointmentRoutes = (fastify, deps) => {
     minute: "2-digit",
     hour12: false,
   });
+  const TELEMEDICINE_PROVIDER = String(process.env.TELEMEDICINE_PROVIDER || "").trim().toLowerCase();
+  const DAILY_API_KEY = String(process.env.DAILY_API_KEY || "").trim();
+  const DAILY_BASE_URL = String(process.env.DAILY_BASE_URL || "").trim().replace(/\/+$/, "");
+  const WEBRTC_STUN_URLS = String(process.env.WEBRTC_STUN_URLS || "stun:stun.l.google.com:19302,stun:stun1.l.google.com:19302")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const WEBRTC_TURN_URLS = String(process.env.WEBRTC_TURN_URLS || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const WEBRTC_TURN_USERNAME = String(process.env.WEBRTC_TURN_USERNAME || "").trim();
+  const WEBRTC_TURN_CREDENTIAL = String(process.env.WEBRTC_TURN_CREDENTIAL || "").trim();
+  const WEBRTC_ICE_TRANSPORT_POLICY = String(process.env.WEBRTC_ICE_TRANSPORT_POLICY || "").trim().toLowerCase();
 
   const getIndiaSlotParts = (value) => {
     const date = value instanceof Date ? value : new Date(value);
@@ -58,6 +72,24 @@ const registerAppointmentRoutes = (fastify, deps) => {
     return {
       dateText: `${lookup.year}-${lookup.month}-${lookup.day}`,
       timeText: `${lookup.hour}:${lookup.minute}`,
+    };
+  };
+
+  const buildRtcConfiguration = () => {
+    const iceServers = [];
+    if (WEBRTC_STUN_URLS.length) {
+      iceServers.push({ urls: WEBRTC_STUN_URLS });
+    }
+    if (WEBRTC_TURN_URLS.length) {
+      iceServers.push({
+        urls: WEBRTC_TURN_URLS,
+        ...(WEBRTC_TURN_USERNAME ? { username: WEBRTC_TURN_USERNAME } : {}),
+        ...(WEBRTC_TURN_CREDENTIAL ? { credential: WEBRTC_TURN_CREDENTIAL } : {}),
+      });
+    }
+    return {
+      iceServers,
+      ...(WEBRTC_ICE_TRANSPORT_POLICY === "relay" ? { iceTransportPolicy: "relay" } : {}),
     };
   };
 
@@ -111,6 +143,103 @@ const registerAppointmentRoutes = (fastify, deps) => {
     if (normalizedMode === "video") return normalizeAmount(doctorRow?.video_fee);
     if (normalizedMode === "audio") return normalizeAmount(doctorRow?.audio_fee);
     return normalizeAmount(doctorRow?.in_person_fee);
+  };
+
+  const buildJitsiMeetingUrl = (consultId, mode) => {
+    const normalizedMode = String(mode || "").trim().toLowerCase();
+    if (!consultId || !["audio", "video"].includes(normalizedMode)) return null;
+    const configSuffix =
+      normalizedMode === "audio"
+        ? "#config.startWithVideoMuted=true&config.prejoinPageEnabled=false&config.disableDeepLinking=true"
+        : "#config.prejoinPageEnabled=false&config.disableDeepLinking=true";
+    return `https://meet.jit.si/SehatSaathi-Consult-${consultId}${configSuffix}`;
+  };
+
+  const buildTeleconsultMeetingUrl = (consultId, mode) => {
+    const normalizedMode = String(mode || "").trim().toLowerCase();
+    if (!consultId || !["audio", "video"].includes(normalizedMode)) return null;
+    if (TELEMEDICINE_PROVIDER === "jitsi") {
+      return buildJitsiMeetingUrl(consultId, normalizedMode);
+    }
+    return null;
+  };
+
+  const buildDailyRoomName = (consultId, mode) =>
+    `sehatsaathi-consult-${String(mode || "video").trim().toLowerCase()}-${consultId}`;
+
+  const buildDailyFallbackUrl = (consultId, mode) => {
+    if (!DAILY_BASE_URL) return null;
+    return `${DAILY_BASE_URL}/${buildDailyRoomName(consultId, mode)}`;
+  };
+
+  const getTelemedicineProvider = () => {
+    if (TELEMEDICINE_PROVIDER) return TELEMEDICINE_PROVIDER;
+    if (DAILY_API_KEY && DAILY_BASE_URL) return "daily";
+    return "jitsi";
+  };
+
+  const createDailyMeetingRoom = async (consultId, mode) => {
+    if (!DAILY_API_KEY || !DAILY_BASE_URL) return null;
+    const roomName = buildDailyRoomName(consultId, mode);
+    const exp = Math.floor(Date.now() / 1000) + 60 * 60 * 12;
+    const endpoint = "https://api.daily.co/v1/rooms";
+    const createResponse = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${DAILY_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: roomName,
+        privacy: "public",
+        properties: {
+          enable_chat: true,
+          enable_prejoin_ui: false,
+          eject_at_room_exp: true,
+          exp,
+          start_video_off: String(mode || "").toLowerCase() === "audio",
+        },
+      }),
+    });
+
+    if (createResponse.ok) {
+      const created = await createResponse.json();
+      return String(created?.url || buildDailyFallbackUrl(consultId, mode) || "").trim() || null;
+    }
+
+    if (createResponse.status === 409) {
+      return buildDailyFallbackUrl(consultId, mode);
+    }
+
+    const errorBody = await createResponse.text().catch(() => "");
+    fastify.log?.warn?.(
+      {
+        consultId,
+        mode,
+        statusCode: createResponse.status,
+        body: errorBody,
+      },
+      "daily_room_create_failed",
+    );
+    return null;
+  };
+
+  const ensureTeleconsultMeetingUrl = async (consultId, mode, existingUrl = "") => {
+    const normalizedMode = String(mode || "").trim().toLowerCase();
+    if (!consultId || !["audio", "video"].includes(normalizedMode)) return null;
+    const current = String(existingUrl || "").trim();
+    if (current) return current;
+
+    const provider = getTelemedicineProvider();
+    if (provider === "daily") {
+      const dailyUrl = await createDailyMeetingRoom(consultId, normalizedMode);
+      if (dailyUrl) return dailyUrl;
+      return null;
+    }
+    if (provider === "jitsi") {
+      return buildJitsiMeetingUrl(consultId, normalizedMode);
+    }
+    return null;
   };
 
   const upsertAppointmentBilling = async ({
@@ -406,6 +535,15 @@ const registerAppointmentRoutes = (fastify, deps) => {
         createdAt,
       ],
     );
+    const autoMeetingUrl = await ensureTeleconsultMeetingUrl(result.lastID, mode);
+    if (autoMeetingUrl) {
+      await run(
+        `UPDATE teleconsult_requests
+         SET meeting_url = ?, updated_at = ?
+         WHERE id = ?`,
+        [autoMeetingUrl, createdAt, result.lastID],
+      );
+    }
     const consultFee = resolveConsultFee(doctor, mode);
     await upsertTeleconsultBilling({
       consultId: result.lastID,
@@ -567,7 +705,7 @@ const registerAppointmentRoutes = (fastify, deps) => {
     if (!authUser) {
       return reply.code(401).send({ error: "Authentication required." });
     }
-    const consult = await get("SELECT id, user_id, doctor_id FROM teleconsult_requests WHERE id = ?", [consultId]);
+    const consult = await get("SELECT id, user_id, doctor_id, mode, meeting_url FROM teleconsult_requests WHERE id = ?", [consultId]);
     if (!consult) {
       return reply.code(404).send({ error: "Consult not found." });
     }
@@ -740,7 +878,10 @@ const registerAppointmentRoutes = (fastify, deps) => {
       return reply.code(400).send({ error: "meetingUrl must be a valid http(s) URL." });
     }
 
-    const consult = await get("SELECT id, user_id, doctor_id FROM teleconsult_requests WHERE id = ?", [consultId]);
+    const consult = await get(
+      "SELECT id, user_id, doctor_id, mode, meeting_url FROM teleconsult_requests WHERE id = ?",
+      [consultId],
+    );
     if (!consult) {
       return reply.code(404).send({ error: "Consult not found." });
     }
@@ -756,11 +897,17 @@ const registerAppointmentRoutes = (fastify, deps) => {
       }
     }
 
+    const resolvedMeetingUrl = await ensureTeleconsultMeetingUrl(
+      consultId,
+      consult.mode,
+      String(meetingUrl || "").trim() || String(consult.meeting_url || "").trim(),
+    );
+
     await run(
       `UPDATE teleconsult_requests
        SET status = ?, meeting_url = ?, updated_at = ?
        WHERE id = ?`,
-      [normalizedStatus, meetingUrl, nowIso(), consultId],
+      [normalizedStatus, resolvedMeetingUrl, nowIso(), consultId],
     );
 
     const statusLabel = normalizedStatus.replace(/_/g, " ");
@@ -984,7 +1131,7 @@ const registerAppointmentRoutes = (fastify, deps) => {
     if (!canAccessConsult(request, consult)) {
       return reply.code(403).send({ error: "Access denied." });
     }
-    if (String(consult.mode || "").toLowerCase() !== "audio") {
+    if (!["audio", "video"].includes(String(consult.mode || "").toLowerCase())) {
       return { events: [] };
     }
     const afterId = Math.max(0, Number(request.query?.afterId) || 0);
@@ -1009,6 +1156,11 @@ const registerAppointmentRoutes = (fastify, deps) => {
     };
   });
 
+  fastify.get("/api/teleconsults/rtc-config", async (request, reply) => {
+    if (!requireAuth(request, reply)) return;
+    return buildRtcConfiguration();
+  });
+
   fastify.post("/api/teleconsults/:consultId/call-events", async (request, reply) => {
     if (!requireAuth(request, reply)) return;
     const consultId = Number(request.params.consultId);
@@ -1022,8 +1174,9 @@ const registerAppointmentRoutes = (fastify, deps) => {
     if (!canAccessConsult(request, consult)) {
       return reply.code(403).send({ error: "Access denied." });
     }
-    if (String(consult.mode || "").toLowerCase() !== "audio") {
-      return reply.code(400).send({ error: "Audio call signaling is only available for audio consults." });
+    const consultMode = String(consult.mode || "").toLowerCase();
+    if (!["audio", "video"].includes(consultMode)) {
+      return reply.code(400).send({ error: "Live call signaling is only available for audio or video consults." });
     }
 
     const { sessionId, eventType, payload = null } = request.body || {};
@@ -1057,6 +1210,11 @@ const registerAppointmentRoutes = (fastify, deps) => {
       createdAt,
     };
 
+    broadcastTeleconsultEvent(consultId, "call_event_created", {
+      consultId,
+      event: eventPayload,
+    });
+
     if (senderRole === "doctor" && normalizedEventType === "offer") {
       await run(
         `UPDATE teleconsult_requests
@@ -1078,10 +1236,10 @@ const registerAppointmentRoutes = (fastify, deps) => {
       await enqueueAndDeliverUserNotification({
         userId: Number(consult.user_id),
         type: "appointment_status",
-        title: "Audio consult started",
-        message: `Your audio consult #${consultId} has started. Open the consult room to join now.`,
+        title: `${consultMode === "video" ? "Video" : "Audio"} consult started`,
+        message: `Your ${consultMode === "video" ? "video" : "audio"} consult #${consultId} has started. Open the consult room to join now.`,
         relatedId: consultId,
-        eventKey: `teleconsult:${consultId}:audio_offer:patient:${result.lastID}`,
+        eventKey: `teleconsult:${consultId}:${consultMode}_offer:patient:${result.lastID}`,
       });
 
       broadcastTeleconsultEvent(consultId, "consult_updated", {
