@@ -149,6 +149,9 @@ function App() {
   const [authForm, setAuthForm] = useState({ email: '', password: '' })
   const [authError, setAuthError] = useState('')
   const [authHydrated, setAuthHydrated] = useState(false)
+  const [showResetModal, setShowResetModal] = useState(false)
+  const [resetForm, setResetForm] = useState({ email: '', token: '', newPassword: '' })
+  const [resetStatus, setResetStatus] = useState('')
   const [user, setUser] = useState(null)
   const [token, setToken] = useState('')
   const [opsData, setOpsData] = useState(null)
@@ -2520,6 +2523,59 @@ function App() {
     }
   }
 
+  const requestPasswordReset = async () => {
+    setResetStatus('')
+    if (!resetForm.email) {
+      setResetStatus('Enter your email first.')
+      return
+    }
+
+    try {
+      const response = await fetchWithWakeRetry(`${API_BASE}/api/auth/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: resetForm.email }),
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        setResetStatus(data.error || 'Unable to send OTP.')
+        return
+      }
+      setResetStatus(data.message || 'OTP sent to your email.')
+    } catch {
+      setResetStatus('Unable to reach the server right now. Please try again.')
+    }
+  }
+
+  const confirmPasswordReset = async () => {
+    setResetStatus('')
+    if (!resetForm.email || !resetForm.token || !resetForm.newPassword) {
+      setResetStatus('Enter email, OTP, and new password.')
+      return
+    }
+
+    try {
+      const response = await fetchWithWakeRetry(`${API_BASE}/api/auth/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: resetForm.email,
+          token: resetForm.token,
+          newPassword: resetForm.newPassword,
+        }),
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        setResetStatus(data.error || 'Unable to reset password.')
+        return
+      }
+      setResetStatus(data.message || 'Password reset successful.')
+      setResetForm((prev) => ({ ...prev, token: '', newPassword: '' }))
+    } catch {
+      setResetStatus('Unable to reach the server right now. Please try again.')
+    }
+  }
+
   const signOut = () => {
     setUser(null)
     setToken('')
@@ -3685,6 +3741,17 @@ function App() {
                   </label>
                   {authError && <p className="error">{authError}</p>}
                   <button className="primary full" type="submit">Sign in to ops</button>
+                  <button
+                    className="ghost full"
+                    type="button"
+                    onClick={() => {
+                      setResetStatus('')
+                      setResetForm((prev) => ({ ...prev, email: prev.email || authForm.email }))
+                      setShowResetModal(true)
+                    }}
+                  >
+                    Forgot password?
+                  </button>
                 </form>
               </div>
             </div>
@@ -4228,6 +4295,58 @@ function App() {
           unitDoctorsForCreate={unitDoctorsForCreate}
           activeVisitTypes={activeVisitTypes}
         />
+      ) : null}
+
+      {showResetModal ? (
+        <div className="modal-backdrop" onClick={() => setShowResetModal(false)}>
+          <div className="modal ops-reset-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="section-head compact">
+              <div>
+                <p className="eyebrow">Account recovery</p>
+                <h2>Reset ops password</h2>
+                <p className="panel-sub">Send an OTP to your staff email, then set a new password.</p>
+              </div>
+              <button className="ghost" type="button" onClick={() => setShowResetModal(false)}>
+                Close
+              </button>
+            </div>
+            <div className="form">
+              <label className="block">
+                Email
+                <input
+                  type="email"
+                  value={resetForm.email}
+                  onChange={(event) => setResetForm((prev) => ({ ...prev, email: event.target.value }))}
+                />
+              </label>
+              <div className="action-row">
+                <button className="secondary" type="button" onClick={requestPasswordReset}>
+                  Send OTP
+                </button>
+              </div>
+              <label className="block">
+                OTP
+                <input
+                  type="text"
+                  value={resetForm.token}
+                  onChange={(event) => setResetForm((prev) => ({ ...prev, token: event.target.value }))}
+                />
+              </label>
+              <label className="block">
+                New password
+                <input
+                  type="password"
+                  value={resetForm.newPassword}
+                  onChange={(event) => setResetForm((prev) => ({ ...prev, newPassword: event.target.value }))}
+                />
+              </label>
+              <button className="primary full" type="button" onClick={confirmPasswordReset}>
+                Reset password
+              </button>
+              {resetStatus ? <p className="micro">{resetStatus}</p> : null}
+            </div>
+          </div>
+        </div>
       ) : null}
     </div>
   )

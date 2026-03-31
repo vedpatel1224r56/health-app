@@ -247,6 +247,10 @@
   gap: 14px;
 }
 
+.ops-reset-modal {
+  max-width: 520px;
+}
+
 .pill-row {
   display: flex;
   gap: 8px;
