@@ -1590,7 +1590,10 @@ const registerPatientRoutes = (fastify, deps) => {
       unitDoctorId = null,
     } = request.body || {};
     if (!requireAuth(request, reply)) return;
-    const targetUserId = userId || request.authUser.id;
+    const targetUserId =
+      request.authUser?.role === "patient"
+        ? request.authUser.id
+        : userId || request.authUser.id;
     if (!targetUserId) return reply.code(400).send({ error: "User id required." });
     if (!canAccessUser(request, targetUserId)) return reply.code(403).send({ error: "Forbidden." });
 
