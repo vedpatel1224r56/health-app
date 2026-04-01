@@ -124,6 +124,11 @@ const buildInsertSql = (table, columns) => {
   return `INSERT INTO ${quoteIdent(table)} (${columnSql}) VALUES (${valueSql})`;
 };
 
+const isForeignKeyViolation = (error) =>
+  error &&
+  (error.code === "23503" ||
+    /violates foreign key constraint/i.test(String(error.message || "")));
+
 const truncateTarget = async (db, tables) => {
   if (!tables.length) return;
   const joined = tables.map(quoteIdent).join(", ");
@@ -222,11 +227,23 @@ const main = async () => {
     if (!rows.length) continue;
 
     const insertSql = buildInsertSql(table, columns);
+    let insertedCount = 0;
+    let skippedCount = 0;
     for (const row of rows) {
       const values = columns.map((column) => row[column]);
-      await target.db.query(insertSql, values);
+      try {
+        await target.db.query(insertSql, values);
+        insertedCount += 1;
+      } catch (error) {
+        if (!isForeignKeyViolation(error)) {
+          throw error;
+        }
+        skippedCount += 1;
+      }
     }
-    process.stdout.write(`Imported ${rows.length} rows into ${table}\n`);
+    process.stdout.write(
+      `Imported ${insertedCount} rows into ${table}${skippedCount ? ` (skipped ${skippedCount} orphan rows)` : ""}\n`,
+    );
   }
 
   await syncSequences(target.db, target.all, orderedTables);
