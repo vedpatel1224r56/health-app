@@ -59,6 +59,18 @@ const getTableColumns = async (all, table) => {
   return rows.map((row) => row.name);
 };
 
+const getPostgresTableColumns = async (all, table) => {
+  const rows = await all(
+    `SELECT column_name
+     FROM information_schema.columns
+     WHERE table_schema = current_schema()
+       AND table_name = ?
+     ORDER BY ordinal_position`,
+    [table],
+  );
+  return rows.map((row) => row.column_name);
+};
+
 const getTableDependencies = async (all, table) => {
   const rows = await all(`PRAGMA foreign_key_list(${quoteIdent(table)})`);
   return [...new Set(rows.map((row) => row.table).filter(Boolean))];
@@ -194,8 +206,18 @@ const main = async () => {
   }
 
   for (const table of orderedTables) {
-    const columns = await getTableColumns(source.all, table);
-    if (!columns.length) continue;
+    const sourceColumns = await getTableColumns(source.all, table);
+    if (!sourceColumns.length) continue;
+    const targetColumns = await getPostgresTableColumns(target.all, table);
+    if (!targetColumns.length) {
+      process.stdout.write(`Skipped ${table}: target table not present in Postgres schema\n`);
+      continue;
+    }
+    const columns = sourceColumns.filter((column) => targetColumns.includes(column));
+    if (!columns.length) {
+      process.stdout.write(`Skipped ${table}: no overlapping columns\n`);
+      continue;
+    }
     const rows = await source.all(`SELECT * FROM ${quoteIdent(table)}`);
     if (!rows.length) continue;
 
