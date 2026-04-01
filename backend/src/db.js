@@ -75,10 +75,29 @@ const createSqliteHelpers = (dbPath, uploadDir, recordsDir) => {
   return { db, run, get, all, ensureDir };
 };
 
+const buildPostgresPoolOptions = (databaseUrl) => {
+  const options = { connectionString: databaseUrl };
+  try {
+    const parsed = new URL(databaseUrl);
+    const sslMode = (parsed.searchParams.get("sslmode") || process.env.PGSSLMODE || "").toLowerCase();
+    const sslRequired =
+      sslMode === "require" ||
+      sslMode === "verify-ca" ||
+      sslMode === "verify-full" ||
+      /render\.com$/i.test(parsed.hostname || "");
+    if (sslRequired) {
+      options.ssl = { rejectUnauthorized: false };
+    }
+  } catch (error) {
+    // Ignore URL parsing issues and let pg handle malformed URLs.
+  }
+  return options;
+};
+
 const createPostgresHelpers = (databaseUrl) => {
   // Lazy-load pg so sqlite-only development does not require postgres packages.
   const { Pool } = require("pg");
-  const db = new Pool({ connectionString: databaseUrl });
+  const db = new Pool(buildPostgresPoolOptions(databaseUrl));
 
   const query = async (sql, params = []) => {
     const transformed = toPostgresSql(sql);
