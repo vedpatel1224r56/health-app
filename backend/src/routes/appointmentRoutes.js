@@ -1422,12 +1422,19 @@ const registerAppointmentRoutes = (fastify, deps) => {
         return reply.code(404).send({ error: "Selected family member not found." });
       }
     }
-    const doctor = await get(
-      `SELECT dp.doctor_id AS id, dp.in_person_fee
-       FROM doctor_profiles dp
-       WHERE dp.doctor_id = ? AND dp.active = 1 AND (? IS NULL OR dp.department_id = ?)`,
-      [Number(doctorId), departmentRow.id, departmentRow.id],
-    );
+    const doctor = departmentRow?.id
+      ? await get(
+          `SELECT dp.doctor_id AS id, dp.in_person_fee
+           FROM doctor_profiles dp
+           WHERE dp.doctor_id = ? AND dp.active = 1 AND dp.department_id = ?`,
+          [Number(doctorId), departmentRow.id],
+        )
+      : await get(
+          `SELECT dp.doctor_id AS id, dp.in_person_fee
+           FROM doctor_profiles dp
+           WHERE dp.doctor_id = ? AND dp.active = 1`,
+          [Number(doctorId)],
+        );
     if (!doctor) {
       return reply.code(404).send({ error: "Selected doctor not found." });
     }
@@ -1576,12 +1583,19 @@ const registerAppointmentRoutes = (fastify, deps) => {
     if (!doctorId) {
       return reply.code(400).send({ error: "Valid doctor selection is required." });
     }
-    const doctor = await get(
-      `SELECT dp.doctor_id AS id, dp.in_person_fee
-       FROM doctor_profiles dp
-       WHERE dp.doctor_id = ? AND dp.active = 1 AND (? IS NULL OR dp.department_id = ?)`,
-      [Number(doctorId), departmentRow.id, departmentRow.id],
-    );
+    const doctor = departmentRow?.id
+      ? await get(
+          `SELECT dp.doctor_id AS id, dp.in_person_fee
+           FROM doctor_profiles dp
+           WHERE dp.doctor_id = ? AND dp.active = 1 AND dp.department_id = ?`,
+          [Number(doctorId), departmentRow.id],
+        )
+      : await get(
+          `SELECT dp.doctor_id AS id, dp.in_person_fee
+           FROM doctor_profiles dp
+           WHERE dp.doctor_id = ? AND dp.active = 1`,
+          [Number(doctorId)],
+        );
     if (!doctor) {
       return reply.code(404).send({ error: "Selected doctor not found." });
     }

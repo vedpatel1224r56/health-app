@@ -48,15 +48,24 @@ const createScheduleService = ({ all }) => {
       return { slots: [] };
     }
 
-    const booked = await all(
-      `SELECT scheduled_at
-       FROM appointments
-       WHERE doctor_id = ?
-         AND date(scheduled_at) = date(?)
-         AND (? IS NULL OR id != ?)
-         AND status IN ('approved', 'checked_in')`,
-      [doctorId, `${dateText}T00:00:00.000Z`, excludeAppointmentId, excludeAppointmentId],
-    );
+    const booked = excludeAppointmentId
+      ? await all(
+          `SELECT scheduled_at
+           FROM appointments
+           WHERE doctor_id = ?
+             AND date(scheduled_at) = date(?)
+             AND id != ?
+             AND status IN ('approved', 'checked_in')`,
+          [doctorId, `${dateText}T00:00:00.000Z`, excludeAppointmentId],
+        )
+      : await all(
+          `SELECT scheduled_at
+           FROM appointments
+           WHERE doctor_id = ?
+             AND date(scheduled_at) = date(?)
+             AND status IN ('approved', 'checked_in')`,
+          [doctorId, `${dateText}T00:00:00.000Z`],
+        );
     const bookedSet = new Set(
       booked.map((row) => {
         const dt = new Date(row.scheduled_at);
