@@ -782,6 +782,44 @@ const createInitDb = (deps) => {
   );
 
   await run(
+    `CREATE TABLE IF NOT EXISTS teleconsult_requests (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      member_id INTEGER,
+      mode TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'requested',
+      concern TEXT NOT NULL,
+      preferred_slot TEXT,
+      phone TEXT,
+      meeting_url TEXT,
+      triage_log_id INTEGER,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY(user_id) REFERENCES users(id)
+    )`,
+  );
+  await ensureColumn(
+    "teleconsult_requests",
+    "meeting_url",
+    "ALTER TABLE teleconsult_requests ADD COLUMN meeting_url TEXT",
+  );
+  await ensureColumn(
+    "teleconsult_requests",
+    "triage_log_id",
+    "ALTER TABLE teleconsult_requests ADD COLUMN triage_log_id INTEGER",
+  );
+  await ensureColumn(
+    "teleconsult_requests",
+    "doctor_id",
+    "ALTER TABLE teleconsult_requests ADD COLUMN doctor_id INTEGER",
+  );
+  await ensureColumn(
+    "teleconsult_requests",
+    "department_id",
+    "ALTER TABLE teleconsult_requests ADD COLUMN department_id INTEGER",
+  );
+
+  await run(
     `CREATE TABLE IF NOT EXISTS appointment_billing (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       appointment_id INTEGER NOT NULL UNIQUE,
@@ -1414,44 +1452,6 @@ const createInitDb = (deps) => {
       viewed_at TEXT NOT NULL,
       FOREIGN KEY(user_id) REFERENCES users(id)
     )`,
-  );
-
-  await run(
-    `CREATE TABLE IF NOT EXISTS teleconsult_requests (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
-      member_id INTEGER,
-      mode TEXT NOT NULL,
-      status TEXT NOT NULL DEFAULT 'requested',
-      concern TEXT NOT NULL,
-      preferred_slot TEXT,
-      phone TEXT,
-      meeting_url TEXT,
-      triage_log_id INTEGER,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL,
-      FOREIGN KEY(user_id) REFERENCES users(id)
-    )`,
-  );
-  await ensureColumn(
-    "teleconsult_requests",
-    "meeting_url",
-    "ALTER TABLE teleconsult_requests ADD COLUMN meeting_url TEXT",
-  );
-  await ensureColumn(
-    "teleconsult_requests",
-    "triage_log_id",
-    "ALTER TABLE teleconsult_requests ADD COLUMN triage_log_id INTEGER",
-  );
-  await ensureColumn(
-    "teleconsult_requests",
-    "doctor_id",
-    "ALTER TABLE teleconsult_requests ADD COLUMN doctor_id INTEGER",
-  );
-  await ensureColumn(
-    "teleconsult_requests",
-    "department_id",
-    "ALTER TABLE teleconsult_requests ADD COLUMN department_id INTEGER",
   );
 
   await run(
