@@ -37,6 +37,20 @@ const parseArgs = (argv) => {
   return args;
 };
 
+const SKIP_TABLES = new Set([
+  "analytics_events",
+  "audit_logs",
+  "auth_sessions",
+  "error_logs",
+  "idempotency_keys",
+  "notification_outbox",
+  "password_reset_otps",
+  "password_reset_tokens",
+  "pilot_metrics_daily",
+  "pilot_user_activity_daily",
+  "teleconsult_call_events",
+]);
+
 const quoteIdent = (value) => `"${String(value).replace(/"/g, "\"\"")}"`;
 
 const nowIso = () => new Date().toISOString();
@@ -51,7 +65,8 @@ const getSqliteTables = async (all) => {
   );
   return rows
     .map((row) => row.name)
-    .filter((name) => name !== "schema_migrations");
+    .filter((name) => name !== "schema_migrations")
+    .filter((name) => !SKIP_TABLES.has(name));
 };
 
 const getTableColumns = async (all, table) => {
