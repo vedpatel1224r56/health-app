@@ -531,6 +531,41 @@ const createInitDb = (deps) => {
   }
 
   await run(
+    `CREATE TABLE IF NOT EXISTS appointments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      member_id INTEGER,
+      doctor_id INTEGER,
+      department_id INTEGER,
+      department TEXT NOT NULL,
+      reason TEXT NOT NULL,
+      scheduled_at TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'requested',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY(user_id) REFERENCES users(id),
+      FOREIGN KEY(doctor_id) REFERENCES users(id),
+      FOREIGN KEY(department_id) REFERENCES departments(id)
+    )`,
+  );
+  await ensureColumn(
+    "appointments",
+    "department_id",
+    "ALTER TABLE appointments ADD COLUMN department_id INTEGER",
+  );
+  await ensureColumn(
+    "appointments",
+    "visit_type",
+    "ALTER TABLE appointments ADD COLUMN visit_type TEXT",
+  );
+  await ensureColumn(
+    "appointments",
+    "is_follow_up",
+    "ALTER TABLE appointments ADD COLUMN is_follow_up INTEGER NOT NULL DEFAULT 0",
+  );
+  await run("UPDATE appointments SET status = 'approved' WHERE status = 'scheduled'");
+
+  await run(
     `CREATE TABLE IF NOT EXISTS ward_listing (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       location_bed TEXT NOT NULL,
@@ -1447,40 +1482,6 @@ const createInitDb = (deps) => {
     )`,
   );
 
-  await run(
-    `CREATE TABLE IF NOT EXISTS appointments (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
-      member_id INTEGER,
-      doctor_id INTEGER,
-      department_id INTEGER,
-      department TEXT NOT NULL,
-      reason TEXT NOT NULL,
-      scheduled_at TEXT NOT NULL,
-      status TEXT NOT NULL DEFAULT 'requested',
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL,
-      FOREIGN KEY(user_id) REFERENCES users(id),
-      FOREIGN KEY(doctor_id) REFERENCES users(id),
-      FOREIGN KEY(department_id) REFERENCES departments(id)
-    )`,
-  );
-  await ensureColumn(
-    "appointments",
-    "department_id",
-    "ALTER TABLE appointments ADD COLUMN department_id INTEGER",
-  );
-  await ensureColumn(
-    "appointments",
-    "visit_type",
-    "ALTER TABLE appointments ADD COLUMN visit_type TEXT",
-  );
-  await ensureColumn(
-    "appointments",
-    "is_follow_up",
-    "ALTER TABLE appointments ADD COLUMN is_follow_up INTEGER NOT NULL DEFAULT 0",
-  );
-  await run("UPDATE appointments SET status = 'approved' WHERE status = 'scheduled'");
   await run(
     `CREATE TABLE IF NOT EXISTS appointment_timeline (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
