@@ -10,6 +10,7 @@
     "report:validate": "node scripts/report_validate.js",
     "report:validate:samples": "node scripts/report_validate.js --expect tests/report_expectations.json",
     "report:validate:extended": "node scripts/report_validate.js --expect tests/report_expectations_extended.json",
+    "db:migrate:sqlite-to-postgres": "node scripts/migrate_sqlite_to_postgres.js",
     "env:check": "node scripts/check_env_hygiene.js",
     "secret:rotate:jwt": "node scripts/rotate_jwt_secret.js",
     "backup:run": "bash scripts/backup_db.sh",
