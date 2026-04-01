@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+const path = require("path");
 const bcrypt = require("bcryptjs");
 const { createDbHelpers } = require("../src/db");
 const { createMigrationHelpers } = require("../src/db/migrations");
@@ -152,10 +153,14 @@ const main = async () => {
   const source = createDbHelpers({
     provider: "sqlite",
     dbPath: sqlitePath,
+    uploadDir: path.join(process.cwd(), ".tmp-migration", "sqlite-uploads"),
+    recordsDir: path.join(process.cwd(), ".tmp-migration", "sqlite-records"),
   });
   const target = createDbHelpers({
     provider: "postgres",
     databaseUrl,
+    uploadDir: path.join(process.cwd(), ".tmp-migration", "pg-uploads"),
+    recordsDir: path.join(process.cwd(), ".tmp-migration", "pg-records"),
   });
 
   const { ensureColumn, ensureMigrationsTable, applyMigration } = createMigrationHelpers({
