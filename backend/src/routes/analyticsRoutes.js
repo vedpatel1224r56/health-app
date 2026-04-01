@@ -8,6 +8,12 @@ const registerAnalyticsRoutes = (fastify, deps) => {
     nowIso,
     safeJsonParse,
   } = deps;
+  const isoDateDaysAgo = (days) => {
+    const date = new Date();
+    date.setUTCDate(date.getUTCDate() - Number(days || 0));
+    return date.toISOString().slice(0, 10);
+  };
+  const todayIsoDate = () => new Date().toISOString().slice(0, 10);
 
   fastify.get("/api/audit/me", async (request, reply) => {
     if (!requireAuth(request, reply)) return;
@@ -42,7 +48,8 @@ const registerAnalyticsRoutes = (fastify, deps) => {
         get("SELECT COUNT(*) AS count FROM doctor_ratings"),
         get(
           `SELECT COUNT(*) AS count FROM error_logs
-           WHERE datetime(created_at) >= datetime('now', '-7 day')`,
+           WHERE created_at >= ?`,
+          [new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()],
         ),
       ]);
 
@@ -54,15 +61,17 @@ const registerAnalyticsRoutes = (fastify, deps) => {
         COALESCE(SUM(doctor_view_opened), 0) AS doctorViews30,
         COALESCE(AVG(seven_day_retention), 0) AS retentionAvg30
        FROM pilot_metrics_daily
-       WHERE metric_date >= date('now', '-29 day')`,
+       WHERE metric_date >= ?`,
+      [isoDateDaysAgo(29)],
     );
 
     const dailySeries = await all(
       `SELECT metric_date, daily_active_users, triage_completed, share_pass_generated,
               doctor_view_opened, seven_day_retention
        FROM pilot_metrics_daily
-       WHERE metric_date >= date('now', '-29 day')
+       WHERE metric_date >= ?
        ORDER BY metric_date ASC`,
+      [isoDateDaysAgo(29)],
     );
 
     const doctorRatingsBreakdown = await all(
@@ -75,7 +84,8 @@ const registerAnalyticsRoutes = (fastify, deps) => {
       `SELECT event_name, event_payload
        FROM analytics_events
        WHERE event_name IN ('triage_helpfulness_feedback', 'visit_happened_followup')
-         AND datetime(created_at) >= datetime('now', '-30 day')`,
+         AND created_at >= ?`,
+      [new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()],
     );
 
     const feedback = {
@@ -124,6 +134,8 @@ const registerAnalyticsRoutes = (fastify, deps) => {
 
   fastify.get("/api/admin/ops/dashboard", async (request, reply) => {
     if (!requireOps(request, reply)) return;
+    const today = todayIsoDate();
+    const now = nowIso();
 
     const [
       todayCounts,
@@ -143,7 +155,8 @@ const registerAnalyticsRoutes = (fastify, deps) => {
            SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) AS cancelled,
            SUM(CASE WHEN status = 'no_show' THEN 1 ELSE 0 END) AS noShow
          FROM appointments
-         WHERE date(scheduled_at) = date('now')`,
+         WHERE date(scheduled_at) = ?`,
+        [today],
       ),
       all(
         `SELECT a.id, a.status, a.reason, a.scheduled_at, p.name AS patient_name,
@@ -152,25 +165,28 @@ const registerAnalyticsRoutes = (fastify, deps) => {
          JOIN users p ON p.id = a.user_id
          LEFT JOIN users d ON d.id = a.doctor_id
          LEFT JOIN departments dep ON dep.id = a.department_id
-         WHERE datetime(a.scheduled_at) >= datetime('now')
+         WHERE a.scheduled_at >= ?
          ORDER BY a.scheduled_at ASC
          LIMIT 12`,
+        [now],
       ),
       all(
         `SELECT COALESCE(dep.name, a.department) AS department_name, COUNT(*) AS total
          FROM appointments a
          LEFT JOIN departments dep ON dep.id = a.department_id
-         WHERE date(a.scheduled_at) = date('now')
+         WHERE date(a.scheduled_at) = ?
          GROUP BY COALESCE(dep.name, a.department)
          ORDER BY total DESC, department_name ASC`,
+        [today],
       ),
       all(
         `SELECT COALESCE(d.name, 'Unassigned') AS doctor_name, COUNT(*) AS total
          FROM appointments a
          LEFT JOIN users d ON d.id = a.doctor_id
-         WHERE date(a.scheduled_at) = date('now')
+         WHERE date(a.scheduled_at) = ?
          GROUP BY COALESCE(d.name, 'Unassigned')
          ORDER BY total DESC, doctor_name ASC`,
+        [today],
       ),
       get(
         `SELECT
@@ -190,7 +206,8 @@ const registerAnalyticsRoutes = (fastify, deps) => {
            ) AS pending_bills
          FROM appointments a
          LEFT JOIN appointment_billing b ON b.appointment_id = a.id
-         WHERE date(a.scheduled_at) = date('now')`,
+         WHERE date(a.scheduled_at) = ?`,
+        [today],
       ),
       all(
         `SELECT request_type, COUNT(*) AS total
