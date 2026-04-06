@@ -58,6 +58,11 @@ function renderWorkspace(overrides = {}) {
     orderDraft: { orderType: 'lab', itemName: '', destination: '', notes: '' },
     setOrderDraft: vi.fn(),
     submitEncounterOrder: vi.fn(),
+    reportInsights: null,
+    reportInsightsStatus: '',
+    reportInsightsMonths: 6,
+    setReportInsightsMonths: vi.fn(),
+    downloadDoctorRecord: vi.fn(),
     ...overrides,
   }
   render(<DoctorConsoleWorkspace {...props} />)
@@ -108,14 +113,14 @@ describe('DoctorConsoleWorkspace', () => {
     fireEvent.click(screen.getByRole('button', { name: /Video/ }))
 
     expect(screen.getByRole('button', { name: 'Start video' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Mute' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Camera off' })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: 'Mute' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Camera off' })).not.toBeInTheDocument()
     expect(
       screen.getByText('Acknowledge the teleconsult notice and keep the consult scheduled to unlock live video.'),
     ).toBeInTheDocument()
   })
 
-  it('shows live call controls for remote video consults after consent', () => {
+  it('shows the video launcher for remote video consults after consent', () => {
     renderWorkspace({
       isRemoteConsult: true,
       activeConsultAppointment: {
@@ -135,7 +140,28 @@ describe('DoctorConsoleWorkspace', () => {
     fireEvent.click(screen.getByRole('button', { name: /Video/ }))
 
     expect(screen.getByRole('button', { name: 'Start video' })).toBeEnabled()
-    expect(screen.getByText('Doctor')).toBeInTheDocument()
-    expect(screen.getByText('Patient')).toBeInTheDocument()
+    expect(screen.getByText('Open the live consult in a separate window, then continue documenting here.')).toBeInTheDocument()
+    expect(screen.queryByText('Doctor')).not.toBeInTheDocument()
+    expect(screen.queryByText('Patient')).not.toBeInTheDocument()
+  })
+
+  it('shows uploaded reports and download action without trend copy in the reports tab', () => {
+    const downloadDoctorRecord = vi.fn()
+    renderWorkspace({
+      reportInsights: {
+        records: [
+          { id: 14, file_name: 'cbc-report.pdf', mimetype: 'application/pdf', created_at: '2026-04-01T10:00:00.000Z' },
+        ],
+      },
+      downloadDoctorRecord,
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reports 1' }))
+
+    expect(screen.getByText('Patient reports')).toBeInTheDocument()
+    expect(screen.getByText('cbc-report.pdf')).toBeInTheDocument()
+    expect(screen.queryByText('Clinical review summary')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Download report' }))
+    expect(downloadDoctorRecord).toHaveBeenCalledWith(14, 'cbc-report.pdf')
   })
 })
