@@ -3008,7 +3008,15 @@ function App() {
 
   const downloadDoctorRecord = async (recordId, fallbackName = 'record') => {
     try {
-      const response = await apiFetch(`${API_BASE}/api/admin/records/${recordId}/download`)
+      const contextQuery = activeRemoteConsultId
+        ? `consultId=${Number(activeRemoteConsultId)}`
+        : activeConsultId
+          ? `appointmentId=${Number(activeConsultId)}`
+          : ''
+      if (!contextQuery) {
+        throw new Error('Open a consult before downloading reports.')
+      }
+      const response = await apiFetch(`${API_BASE}/api/doctor/records/${recordId}/download?${contextQuery}`)
       if (!response.ok) {
         const data = await response.json().catch(() => ({}))
         throw new Error(data.error || 'Download failed.')

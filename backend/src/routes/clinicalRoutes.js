@@ -1,3 +1,4 @@
+const fs = require("fs");
 const { buildUipDueVaccines, buildIapDueVaccines, calculateAgeMonths, UIP_SCHEDULE, IAP_SCHEDULE } = require("../services/pediatricsService");
 const { createDoctorAssistService } = require("../services/doctorAssistService");
 const { listReportCatalog, buildReportInsights } = require("../services/reportInsightsService");
@@ -615,6 +616,72 @@ const registerClinicalRoutes = (fastify, deps) => {
       memberId: consult.member_id || null,
       months,
     });
+  });
+
+  fastify.get("/api/doctor/records/:recordId/download", async (request, reply) => {
+    if (!requireAuth(request, reply)) return;
+    if (!isDoctorRole(request.authUser.role)) {
+      return reply.code(403).send({ error: "Doctor or admin access required." });
+    }
+
+    const recordId = Number(request.params.recordId);
+    const appointmentId = request.query?.appointmentId ? Number(request.query.appointmentId) : null;
+    const consultId = request.query?.consultId ? Number(request.query.consultId) : null;
+    if (!recordId) return reply.code(400).send({ error: "Invalid record id." });
+    if (!appointmentId && !consultId) {
+      return reply.code(400).send({ error: "Appointment or consult context is required." });
+    }
+
+    let accessContext = null;
+    if (appointmentId) {
+      accessContext = await get(
+        `SELECT a.user_id, a.member_id, a.doctor_id
+         FROM appointments a
+         WHERE a.id = ?`,
+        [appointmentId],
+      );
+      if (!accessContext) return reply.code(404).send({ error: "Appointment not found." });
+      if (
+        request.authUser.role !== "admin" &&
+        Number(accessContext.doctor_id) !== Number(request.authUser.id)
+      ) {
+        return reply.code(403).send({ error: "Only the assigned doctor can download reports for this appointment." });
+      }
+    } else {
+      accessContext = await get(
+        `SELECT tr.user_id, tr.member_id, tr.doctor_id
+         FROM teleconsult_requests tr
+         WHERE tr.id = ?`,
+        [consultId],
+      );
+      if (!accessContext) return reply.code(404).send({ error: "Consult not found." });
+      if (
+        request.authUser.role !== "admin" &&
+        Number(accessContext.doctor_id) !== Number(request.authUser.id)
+      ) {
+        return reply.code(403).send({ error: "Only the assigned doctor can download reports for this consult." });
+      }
+    }
+
+    const record = await get(
+      `SELECT id, user_id, member_id, file_name, file_path, mimetype
+       FROM medical_records
+       WHERE id = ?`,
+      [recordId],
+    );
+    if (!record) return reply.code(404).send({ error: "Record not found." });
+    if (
+      Number(record.user_id) !== Number(accessContext.user_id) ||
+      Number(record.member_id || 0) !== Number(accessContext.member_id || 0)
+    ) {
+      return reply.code(403).send({ error: "That report does not belong to this patient." });
+    }
+    if (!fs.existsSync(record.file_path)) return reply.code(404).send({ error: "Record file missing." });
+
+    const attachmentName = String(record.file_name || "record").replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 120);
+    reply.header("Content-Type", record.mimetype || "application/octet-stream");
+    reply.header("Content-Disposition", `attachment; filename="${attachmentName}"`);
+    return reply.send(fs.createReadStream(record.file_path));
   });
 
   fastify.post("/api/appointments/:appointmentId/encounter", async (request, reply) => {

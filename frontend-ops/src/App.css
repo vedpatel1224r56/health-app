@@ -687,6 +687,8 @@
 
 .appointment-modal {
   max-width: 920px;
+  max-height: calc(100vh - 40px);
+  overflow: auto;
 }
 
 .remote-consult-modal {
