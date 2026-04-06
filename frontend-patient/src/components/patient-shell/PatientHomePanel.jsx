@@ -30,6 +30,10 @@ export function PatientHomePanel({
       : String(nextAppointment?.status || "")
           .replace(/_/g, " ")
           .replace(/\b\w/g, (char) => char.toUpperCase());
+  const firstName = String(user.name || "").split(" ")[0] || "there";
+  const pendingRequests = Number(pendingServiceRequests || 0);
+  const careReadinessLabel =
+    profileCompletion >= 85 ? "Ready for visits" : profileCompletion >= 55 ? "Needs a few details" : "Profile setup pending";
   const quickActions = [
     {
       key: "triage",
@@ -59,8 +63,26 @@ export function PatientHomePanel({
       <div className="patient-home-hero">
         <div className="patient-home-copy">
           <p className="patient-home-eyebrow">SehatSaathi Home</p>
-          <h2>Hi {String(user.name || "").split(" ")[0] || "there"}, your care dashboard is ready</h2>
+          <h2>Hi {firstName}, your care dashboard is ready</h2>
           <p className="panel-sub">{profileSummary}</p>
+          <div className="patient-home-callouts">
+            <div className="patient-callout-pill">
+              <span className="patient-callout-label">Care status</span>
+              <strong>{careReadinessLabel}</strong>
+            </div>
+            <div className="patient-callout-pill">
+              <span className="patient-callout-label">Pending requests</span>
+              <strong>{pendingRequests}</strong>
+            </div>
+          </div>
+          <div className="action-row patient-home-actions">
+            <button type="button" className="primary" onClick={() => setActivePatientTab("appointments")}>
+              Book a visit
+            </button>
+            <button type="button" className="ghost" onClick={() => setActivePatientTab("clinical")}>
+              Open records
+            </button>
+          </div>
         </div>
         <div className="patient-home-kpis">
           <article className="patient-kpi-card">
@@ -72,6 +94,15 @@ export function PatientHomePanel({
             <p className="kpi-label">Updates</p>
             <p className="kpi-value">{unreadNotificationsCount}</p>
             <p className="kpi-note">{unreadNotificationsCount ? "New hospital updates and care notifications" : "You are caught up on care updates"}</p>
+          </article>
+          <article className="patient-kpi-card is-visit">
+            <p className="kpi-label">{nextAppointment ? "Next visit" : "Visit status"}</p>
+            <p className="kpi-value kpi-value-compact">{nextAppointment ? nextAppointmentStatusLabel : "No visit"}</p>
+            <p className="kpi-note">
+              {nextAppointment
+                ? `${nextAppointment.department_name || nextAppointment.department}${nextAppointment.doctor_name ? ` • ${formatDoctorName(nextAppointment.doctor_name)}` : ""}`
+                : "Book your next appointment when needed."}
+            </p>
           </article>
         </div>
       </div>
@@ -114,6 +145,20 @@ export function PatientHomePanel({
               Edit profile
             </button>
           </div>
+        </article>
+
+        <article className="pass-card patient-surface-card patient-share-card">
+          <p className="history-headline">Digital health pass</p>
+          <p className="member-metric">{sharePass?.code || "Ready on request"}</p>
+          <p className="micro">
+            Generate a temporary pass to share your latest records quickly during a visit.
+          </p>
+          <div className="action-row">
+            <button type="button" className="ghost" onClick={generateSharePass}>
+              {sharePass ? "Refresh pass" : "Generate pass"}
+            </button>
+          </div>
+          {sharePassStatus ? <p className="micro">{sharePassStatus}</p> : null}
         </article>
 
         {latestHospitalUpdate ? (
