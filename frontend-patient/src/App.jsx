@@ -1762,6 +1762,7 @@ function App() {
     saveProfile,
     uploadRecord,
     deleteRecord,
+    downloadRecord,
     seedDemoReports,
     generateSharePass,
     requestAbhaVerification,
@@ -3183,7 +3184,7 @@ function App() {
               recordsInputRef={recordsInputRef}
               uploadRecord={uploadRecord}
               recordStatus={recordStatus}
-              apiBase={API_BASE}
+              downloadRecord={downloadRecord}
               deleteRecord={deleteRecord}
               t={t}
             />

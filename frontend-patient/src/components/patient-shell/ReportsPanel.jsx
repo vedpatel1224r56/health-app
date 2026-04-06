@@ -8,7 +8,7 @@ export function ReportsPanel({
   recordsInputRef,
   uploadRecord,
   recordStatus,
-  apiBase,
+  downloadRecord,
   deleteRecord,
   t,
 }) {
@@ -89,11 +89,13 @@ export function ReportsPanel({
                 </div>
               </div>
               <div className="action-row">
-                {record.downloadUrl ? (
-                  <a className="secondary" href={`${apiBase}${record.downloadUrl}`} target="_blank" rel="noreferrer">
-                    Download
-                  </a>
-                ) : null}
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => downloadRecord?.(record.id, record.file_name || "report")}
+                >
+                  Download
+                </button>
                 <button type="button" className="ghost" onClick={() => deleteRecord(record.id)}>
                   {t("removeRecord")}
                 </button>

@@ -190,6 +190,32 @@ export function useProfileSectionActions({
     [activeMemberId, apiBase, apiFetch, loadRecords, loadReportInsights, setRecordStatus],
   );
 
+  const downloadRecord = useCallback(
+    async (recordId, fallbackName = "record") => {
+      if (!recordId) return;
+      setRecordStatus("");
+      try {
+        const response = await apiFetch(`${apiBase}/api/records/${recordId}/download`);
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}));
+          throw new Error(data.error || "Download failed.");
+        }
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = fallbackName;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+      } catch (error) {
+        setRecordStatus(error.message || "Unable to download report.");
+      }
+    },
+    [apiBase, apiFetch, setRecordStatus],
+  );
+
   const seedDemoReports = useCallback(async () => {
     if (!isLocalDemoHost) return;
     setRecordStatus("");
@@ -306,6 +332,7 @@ export function useProfileSectionActions({
     saveProfile,
     uploadRecord,
     deleteRecord,
+    downloadRecord,
     seedDemoReports,
     generateSharePass,
     requestAbhaVerification,
