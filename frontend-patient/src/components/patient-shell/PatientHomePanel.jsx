@@ -11,10 +11,6 @@ export function PatientHomePanel({
   lastGuidance,
   t,
   openProfileEditor,
-  sharePass,
-  sharePassStatus,
-  shareQr,
-  generateSharePass,
 }) {
   const formatDoctorName = (name) => {
     const trimmed = String(name || "").trim();
@@ -31,9 +27,6 @@ export function PatientHomePanel({
           .replace(/_/g, " ")
           .replace(/\b\w/g, (char) => char.toUpperCase());
   const firstName = String(user.name || "").split(" ")[0] || "there";
-  const pendingRequests = Number(pendingServiceRequests || 0);
-  const careReadinessLabel =
-    profileCompletion >= 85 ? "Ready for visits" : profileCompletion >= 55 ? "Needs a few details" : "Profile setup pending";
   const quickActions = [
     {
       key: "triage",
@@ -65,24 +58,6 @@ export function PatientHomePanel({
           <p className="patient-home-eyebrow">SehatSaathi Home</p>
           <h2>Hi {firstName}, your care dashboard is ready</h2>
           <p className="panel-sub">{profileSummary}</p>
-          <div className="patient-home-callouts">
-            <div className="patient-callout-pill">
-              <span className="patient-callout-label">Care status</span>
-              <strong>{careReadinessLabel}</strong>
-            </div>
-            <div className="patient-callout-pill">
-              <span className="patient-callout-label">Pending requests</span>
-              <strong>{pendingRequests}</strong>
-            </div>
-          </div>
-          <div className="action-row patient-home-actions">
-            <button type="button" className="primary" onClick={() => setActivePatientTab("appointments")}>
-              Book a visit
-            </button>
-            <button type="button" className="ghost" onClick={() => setActivePatientTab("clinical")}>
-              Open records
-            </button>
-          </div>
         </div>
         <div className="patient-home-kpis">
           <article className="patient-kpi-card">
@@ -145,20 +120,6 @@ export function PatientHomePanel({
               Edit profile
             </button>
           </div>
-        </article>
-
-        <article className="pass-card patient-surface-card patient-share-card">
-          <p className="history-headline">Digital health pass</p>
-          <p className="member-metric">{sharePass?.code || "Ready on request"}</p>
-          <p className="micro">
-            Generate a temporary pass to share your latest records quickly during a visit.
-          </p>
-          <div className="action-row">
-            <button type="button" className="ghost" onClick={generateSharePass}>
-              {sharePass ? "Refresh pass" : "Generate pass"}
-            </button>
-          </div>
-          {sharePassStatus ? <p className="micro">{sharePassStatus}</p> : null}
         </article>
 
         {latestHospitalUpdate ? (

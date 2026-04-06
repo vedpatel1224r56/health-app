@@ -871,6 +871,7 @@ export function DoctorConsoleWorkspace({
   reportInsightsStatus,
   reportInsightsMonths,
   setReportInsightsMonths,
+  downloadDoctorRecord,
   apiBase,
   authToken,
   currentUserId,
@@ -2858,6 +2859,27 @@ export function DoctorConsoleWorkspace({
                       {!(reportInsights?.trends || []).length ? <p className="micro">No report trends available yet.</p> : null}
                     </div>
                   )}
+                  <div className="history-list compact-list" style={{ marginTop: 16 }}>
+                    {(reportInsights?.records || []).map((record) => (
+                      <div key={`doctor-report-record-${record.id}`} className="history-card">
+                        <p className="history-headline">{record.file_name || `Report #${record.id}`}</p>
+                        <p className="micro">
+                          {record.created_at ? new Date(record.created_at).toLocaleString() : '-'}
+                          {record.analysis?.reportType ? ` • ${String(record.analysis.reportType).replace(/_/g, ' ')}` : ''}
+                        </p>
+                        <div className="action-row">
+                          <button
+                            type="button"
+                            className="secondary"
+                            onClick={() => downloadDoctorRecord?.(record.id, record.file_name || 'report')}
+                          >
+                            Download report
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    {!(reportInsights?.records || []).length ? <p className="micro">No uploaded reports available yet.</p> : null}
+                  </div>
                 </div>
               </div>
             ) : null}

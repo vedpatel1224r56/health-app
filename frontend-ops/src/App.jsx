@@ -542,8 +542,9 @@ function App() {
   useEffect(() => {
     if (user?.role !== 'doctor' || activeWorkspace !== 'console') return
     if (activeRemoteConsultId) {
-      setDoctorReportInsights(null)
-      setDoctorReportInsightsStatus('')
+      loadDoctorTeleconsultReportInsights(activeRemoteConsultId, doctorReportInsightsMonths).catch((error) => {
+        setDoctorReportInsightsStatus(error?.message || 'Unable to load report insights.')
+      })
       return
     }
     if (!activeConsultId) return
@@ -1136,6 +1137,16 @@ function App() {
 
   const loadDoctorReportInsights = async (appointmentId, months = doctorReportInsightsMonths) => {
     const response = await apiFetch(`${API_BASE}/api/appointments/${appointmentId}/report-insights?months=${Number(months || 6)}`)
+    const data = await response.json()
+    if (!response.ok) {
+      throw new Error(data.error || 'Unable to load report insights.')
+    }
+    setDoctorReportInsights(data ? { ...(data.insights || {}), records: data.records || [] } : null)
+    return data
+  }
+
+  const loadDoctorTeleconsultReportInsights = async (consultId, months = doctorReportInsightsMonths) => {
+    const response = await apiFetch(`${API_BASE}/api/teleconsults/${consultId}/report-insights?months=${Number(months || 6)}`)
     const data = await response.json()
     if (!response.ok) {
       throw new Error(data.error || 'Unable to load report insights.')
@@ -2995,6 +3006,28 @@ function App() {
     }
   }
 
+  const downloadDoctorRecord = async (recordId, fallbackName = 'record') => {
+    try {
+      const response = await apiFetch(`${API_BASE}/api/admin/records/${recordId}/download`)
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}))
+        throw new Error(data.error || 'Download failed.')
+      }
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = fallbackName
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(url)
+      setDoctorReportInsightsStatus('')
+    } catch (error) {
+      setDoctorReportInsightsStatus(error.message || 'Unable to download report.')
+    }
+  }
+
   const handlePatientQuickAction = async (action, patient) => {
     if (action === 'visit' || action === 'addVisit') {
       const preferredVisitType = String(patient.visitTimeDraft || '').toUpperCase()
@@ -3819,6 +3852,7 @@ function App() {
               reportInsightsStatus={doctorReportInsightsStatus}
               reportInsightsMonths={doctorReportInsightsMonths}
               setReportInsightsMonths={setDoctorReportInsightsMonths}
+              downloadDoctorRecord={downloadDoctorRecord}
               apiBase={API_BASE}
               authToken={token}
               currentUserId={user?.id}
@@ -4142,6 +4176,7 @@ function App() {
                 reportInsightsStatus={doctorReportInsightsStatus}
                 reportInsightsMonths={doctorReportInsightsMonths}
                 setReportInsightsMonths={setDoctorReportInsightsMonths}
+                downloadDoctorRecord={downloadDoctorRecord}
                 apiBase={API_BASE}
                 authToken={token}
                 currentUserId={user?.id}

@@ -589,6 +589,34 @@ const registerClinicalRoutes = (fastify, deps) => {
     });
   });
 
+  fastify.get("/api/teleconsults/:consultId/report-insights", async (request, reply) => {
+    if (!requireAuth(request, reply)) return;
+    if (!isDoctorRole(request.authUser.role)) {
+      return reply.code(403).send({ error: "Doctor or admin access required." });
+    }
+    const consultId = Number(request.params.consultId);
+    if (!consultId) return reply.code(400).send({ error: "Invalid consult id." });
+    const months = request.query?.months ? Number(request.query.months) : 6;
+    const consult = await get(
+      `SELECT tr.id, tr.user_id, tr.member_id, tr.doctor_id
+       FROM teleconsult_requests tr
+       WHERE tr.id = ?`,
+      [consultId],
+    );
+    if (!consult) return reply.code(404).send({ error: "Consult not found." });
+    if (
+      request.authUser.role !== "admin" &&
+      Number(consult.doctor_id) !== Number(request.authUser.id)
+    ) {
+      return reply.code(403).send({ error: "Only the assigned doctor can view report insights." });
+    }
+    return buildReportInsightPayload({
+      userId: consult.user_id,
+      memberId: consult.member_id || null,
+      months,
+    });
+  });
+
   fastify.post("/api/appointments/:appointmentId/encounter", async (request, reply) => {
     if (!requireAuth(request, reply)) return;
     if (!isDoctorRole(request.authUser.role)) {

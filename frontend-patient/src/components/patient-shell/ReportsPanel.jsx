@@ -1,15 +1,4 @@
-import { useMemo, useState } from "react";
-import { ReportTrendChart } from "./ReportTrendChart";
-
-const REPORT_GROUPS = [
-  { key: "diabetes", title: "Diabetes panel", metricKeys: ["hba1c", "estimated_average_glucose", "fbs", "ppbs", "rbs"] },
-  { key: "thyroid", title: "Thyroid panel", metricKeys: ["tsh", "t3", "t4"] },
-  { key: "liver", title: "Liver panel", metricKeys: ["bilirubin_total", "sgpt_alt", "sgot_ast"] },
-  { key: "lipid", title: "Lipid panel", metricKeys: ["total_cholesterol", "ldl", "hdl", "triglycerides"] },
-  { key: "ckd", title: "Kidney panel", metricKeys: ["creatinine", "urea", "uric_acid"] },
-  { key: "anemia", title: "Anemia / CBC panel", metricKeys: ["hemoglobin", "rbc_count", "pcv", "mcv", "mch", "mchc", "rdw", "wbc", "esr", "platelets"] },
-  { key: "anthropometry", title: "Body metrics panel", metricKeys: ["weight", "bmi"] },
-];
+import { useState } from "react";
 
 export function ReportsPanel({
   records,
@@ -35,30 +24,7 @@ export function ReportsPanel({
   deleteRecord,
   t,
 }) {
-  const catalogMap = new Map((reportCatalog || []).map((item) => [item.key, item]));
-  const [reportViewMode, setReportViewMode] = useState("condition");
-  const [focusReviewFields, setFocusReviewFields] = useState({});
-  const formatMetricValue = (metric) => {
-    if (!metric) return "";
-    const number = Number(metric.valueNum);
-    if (!Number.isFinite(number)) return "";
-    const value = Number.isInteger(number) ? String(number) : String(number);
-    return `${metric.metricLabel}: ${value}${metric.unit ? ` ${metric.unit}` : ""}`;
-  };
-  const groupedPanels = useMemo(() => {
-    const trendMap = new Map((reportInsights?.trends || []).map((trend) => [trend.metricKey, trend]));
-    const summaryMap = new Map((reportInsights?.conditionSummaries || []).map((item) => [item.key, item]));
-    return REPORT_GROUPS.map((group) => {
-      const trends = group.metricKeys.map((metricKey) => trendMap.get(metricKey)).filter(Boolean);
-      return {
-        ...group,
-        trends,
-        summary: summaryMap.get(group.key) || null,
-      };
-    }).filter((group) => group.trends.length || group.summary);
-  }, [reportInsights]);
   const latestRecordDate = records[0]?.created_at ? new Date(records[0].created_at).toLocaleDateString() : "-";
-  const reviewTrendCount = (reportInsights?.trends || []).filter((trend) => trend.needsReview).length;
 
   return (
     <section className="panel">
@@ -79,11 +45,6 @@ export function ReportsPanel({
             <strong>{latestRecordDate}</strong>
             <span className="micro">Most recent lab document</span>
           </article>
-          <article className="report-shell-stat">
-            <span className="mini-label">Review flags</span>
-            <strong>{reviewTrendCount}</strong>
-            <span className="micro">Values that may need confirmation</span>
-          </article>
         </div>
       </div>
       <div className="report-insights-topbar">
@@ -93,14 +54,6 @@ export function ReportsPanel({
             <button type="button" className="secondary" onClick={seedDemoReports}>Load demo reports</button>
           ) : null}
         </div>
-        <label className="report-month-filter">
-          Trend window
-          <select value={String(reportInsightsMonths)} onChange={(event) => setReportInsightsMonths(Number(event.target.value))}>
-            <option value="3">3 months</option>
-            <option value="6">6 months</option>
-            <option value="12">12 months</option>
-          </select>
-        </label>
       </div>
       <input ref={recordsInputRef} type="file" accept="image/*,application/pdf" onChange={uploadRecord} style={{ display: "none" }} />
       {recordStatus && <p className="micro">{recordStatus}</p>}
@@ -117,88 +70,6 @@ export function ReportsPanel({
       <p className="micro report-support-note">
         Supported uploads: clear PDF reports or sharp images. Blurry, dark, or unsupported report formats will be rejected so inaccurate insights are not shown.
       </p>
-
-      <div className="report-insight-summary panel-subsection">
-        <div className="section-head compact">
-          <div>
-            <p className="micro strong">Insight summary</p>
-            <p className="micro">{reportInsights?.patientSummary || "Upload and annotate reports to start seeing summaries."}</p>
-          </div>
-        </div>
-        <div className="report-trend-grid">
-          {(reportInsights?.badges || []).map((badge) => (
-            <div key={badge.key} className={`report-badge report-zone-${badge.zone}`}>{badge.label}</div>
-          ))}
-        </div>
-        <div className="history-list compact-list report-condition-summary-list">
-          {(reportInsights?.conditionSummaries || []).map((item) => (
-            <div key={item.key} className="history-card">
-              <p className="history-headline">{item.title}</p>
-              <p className={`micro report-zone-${item.zone}`}>{item.summary}</p>
-            </div>
-          ))}
-        </div>
-        <div className="report-view-switch">
-          <button
-            type="button"
-            className={reportViewMode === "condition" ? "active" : ""}
-            onClick={() => setReportViewMode("condition")}
-          >
-            Condition view
-          </button>
-          <button
-            type="button"
-            className={reportViewMode === "metrics" ? "active" : ""}
-            onClick={() => setReportViewMode("metrics")}
-          >
-            All metrics view
-          </button>
-        </div>
-        {reportViewMode === "condition" ? (
-          <div className="report-condition-stack">
-            {groupedPanels.length ? groupedPanels.map((panel) => (
-              <article key={panel.key} className="report-condition-panel">
-                <div className="report-condition-head">
-                  <div>
-                    <p className="micro strong">{panel.title}</p>
-                    <h3>{panel.summary?.title || panel.title}</h3>
-                  </div>
-                  {panel.summary ? (
-                    <span className={`report-badge report-zone-${panel.summary.zone}`}>{panel.summary.zone === "high" ? "Needs attention" : panel.summary.zone === "low" ? "Watch trend" : "Stable"}</span>
-                  ) : null}
-                </div>
-                <p className="micro report-panel-summary">{panel.summary?.summary || "Tracked metrics grouped together for easier comparison."}</p>
-                <div className="report-trend-grid report-trend-grid-condensed">
-                  {panel.trends.map((trend) => (
-                    <ReportTrendChart
-                      key={trend.metricKey}
-                      title={trend.metricLabel}
-                      unit={trend.unit}
-                      points={trend.points}
-                      zone={trend.zone}
-                      needsReview={trend.needsReview}
-                    />
-                  ))}
-                </div>
-              </article>
-            )) : <p className="micro">No grouped condition trends yet.</p>}
-          </div>
-        ) : (
-          <div className="report-trend-grid">
-            {(reportInsights?.trends || []).map((trend) => (
-              <ReportTrendChart
-                key={trend.metricKey}
-                title={trend.metricLabel}
-                unit={trend.unit}
-                points={trend.points}
-                zone={trend.zone}
-                needsReview={trend.needsReview}
-              />
-            ))}
-            {!(reportInsights?.trends || []).length ? <p className="micro">No structured trends yet.</p> : null}
-          </div>
-        )}
-      </div>
 
       <div className="history-list">
         {records.length === 0 ? (
