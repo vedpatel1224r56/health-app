@@ -1,5 +1,3 @@
-import { useState } from 'react'
-
 const formatPatientDisplayId = (patient) => patient?.patient_uid || `PID${String(patient?.id || '').padStart(6, '0')}`
 
 export function PatientAdministrationWorkspace({
@@ -8,12 +6,6 @@ export function PatientAdministrationWorkspace({
   patientSearch,
   setPatientSearch,
   loadPatients,
-  abhaReviewQueue,
-  abhaReviewStatus,
-  loadAbhaReviewQueue,
-  reviewPatientAbha,
-  abhaReviewNotes,
-  setAbhaReviewNotes,
   setShowCreatePatientModal,
   handlePatientQuickAction,
   activePatient,
@@ -47,19 +39,7 @@ export function PatientAdministrationWorkspace({
   createPatient,
   unitDoctorsForCreate,
 }) {
-  const [activeRegistryView, setActiveRegistryView] = useState('patients')
-  const [abhaQueueFilter, setAbhaQueueFilter] = useState('all')
-  const [abhaSearch, setAbhaSearch] = useState('')
   const activeCount = patients.filter((patient) => patient.activeDraft === 'active').length
-  const pendingAbhaCount = abhaReviewQueue.filter((item) => item.abhaStatus === 'pending_verification').length
-  const visibleAbhaQueue = abhaReviewQueue.filter((item) => {
-    const statusOk = abhaQueueFilter === 'all' || item.abhaStatus === abhaQueueFilter
-    const q = abhaSearch.trim().toLowerCase()
-    if (!statusOk) return false
-    if (!q) return true
-    const haystack = [item.patientName, item.patientUid, item.abhaNumber, item.abhaAddress].join(' ').toLowerCase()
-    return haystack.includes(q)
-  })
   return (
     <>
       <section className="grid">
@@ -88,111 +68,12 @@ export function PatientAdministrationWorkspace({
               <span className="micro">Profiles currently marked active</span>
             </article>
             <article className="patient-admin-stat-card">
-              <span className="mini-label">ABHA review</span>
-              <strong>{pendingAbhaCount}</strong>
-              <span className="micro">Pending verification requests</span>
+              <span className="mini-label">Patient records</span>
+              <strong>{patients.length}</strong>
+              <span className="micro">Profiles available for admin action</span>
             </article>
           </div>
-          <div className="patient-admin-lane-switch">
-            <label className="workspace-select grouped patient-admin-view-select">
-              <span className="mini-label">Registry view</span>
-              <select value={activeRegistryView} onChange={(event) => setActiveRegistryView(event.target.value)}>
-                <option value="patients">Patients</option>
-                <option value="abha">ABHA review</option>
-              </select>
-            </label>
-          </div>
           <div className="grid nested-grid">
-            {activeRegistryView === 'abha' ? (
-            <div className="panel result">
-              <div className="section-head compact">
-                <div>
-                  <h3>ABHA review queue</h3>
-                  <p className="panel-sub">Review pending ABHA verification requests from the patient portal.</p>
-                </div>
-                <button className="secondary" type="button" onClick={() => loadAbhaReviewQueue()}>Refresh queue</button>
-              </div>
-              {abhaReviewStatus ? <p className="micro">{abhaReviewStatus}</p> : null}
-              <div className="form-row">
-                <label>
-                  Filter
-                  <select value={abhaQueueFilter} onChange={(event) => setAbhaQueueFilter(event.target.value)}>
-                    <option value="all">All</option>
-                    <option value="pending_verification">Pending</option>
-                    <option value="verification_rejected">Rejected</option>
-                  </select>
-                </label>
-                <label>
-                  Search ABHA / patient
-                  <input
-                    type="search"
-                    placeholder="ABHA number, address, name, PID"
-                    value={abhaSearch}
-                    onChange={(event) => setAbhaSearch(event.target.value)}
-                  />
-                </label>
-              </div>
-              <div className="table-shell patient-table-shell">
-                <div className="admin-table patient-table-head">
-                  <span>Patient</span>
-                  <span>ABHA</span>
-                  <span>Status</span>
-                  <span>Requested</span>
-                  <span>Action</span>
-                </div>
-                {visibleAbhaQueue.map((item) => (
-                  <div key={`abha-review-${item.patientId}`} className="admin-table patient-table-row">
-                    <span className="table-cell">
-                      <strong>{item.patientName || '-'}</strong>
-                      <br />
-                      <span className="micro">{item.patientUid}</span>
-                    </span>
-                    <span className="table-cell">
-                      <span>{item.abhaNumber || item.abhaAddress || '-'}</span>
-                      {item.abhaNumber && item.abhaAddress ? <p className="micro">{item.abhaAddress}</p> : null}
-                    </span>
-                    <span className="table-cell">
-                      <span className={`status-pill ${item.abhaStatus === 'verified' ? 'completed' : item.abhaStatus === 'pending_verification' ? 'checkedin' : 'requested'}`}>
-                        {String(item.abhaStatus || 'not_linked').replace(/_/g, ' ')}
-                      </span>
-                    </span>
-                    <span className="table-cell">{item.requestedAt ? new Date(item.requestedAt).toLocaleString() : '-'}</span>
-                    <span className="table-cell">
-                      <div className="table-actions" style={{ alignItems: 'stretch' }}>
-                        <button className="secondary" type="button" onClick={() => { handlePatientQuickAction('profile', { id: item.patientId }) }}>
-                          Open
-                        </button>
-                        {item.abhaStatus === 'pending_verification' ? (
-                          <>
-                            <button className="primary" type="button" onClick={() => void reviewPatientAbha(item.patientId, 'approve')}>
-                              Approve
-                            </button>
-                            <textarea
-                              rows={2}
-                              placeholder="Reject note for patient"
-                              value={abhaReviewNotes[item.patientId] || ''}
-                              onChange={(event) =>
-                                setAbhaReviewNotes((prev) => ({ ...prev, [item.patientId]: event.target.value }))
-                              }
-                            />
-                            <button
-                              className="ghost"
-                              type="button"
-                              onClick={() => void reviewPatientAbha(item.patientId, 'reject', (abhaReviewNotes[item.patientId] || '').trim() || item.requestNotes || 'Please review and correct ABHA details.')}
-                            >
-                              Reject
-                            </button>
-                          </>
-                        ) : null}
-                      </div>
-                    </span>
-                  </div>
-                ))}
-                {visibleAbhaQueue.length === 0 ? <p className="micro">No ABHA reviews match the current filter.</p> : null}
-              </div>
-            </div>
-            ) : null}
-            {activeRegistryView === 'patients' ? (
             <div className="panel result">
               <div className="section-head compact">
                 <div>
@@ -303,7 +184,6 @@ export function PatientAdministrationWorkspace({
                 {patients.length === 0 && <p className="micro">No patients found for the current search.</p>}
               </div>
             </div>
-            ) : null}
           </div>
         </div>
       </section>
@@ -448,9 +328,6 @@ export function PatientAdministrationWorkspace({
                   <p className="history-headline">Profile snapshot</p>
                   {patientProfileData[activePatient.id] ? (
                     <>
-                      <p className="micro">ABHA status: {String(patientProfileData[activePatient.id].abha_status || 'not_linked').replace(/_/g, ' ')}</p>
-                      <p className="micro">ABHA no.: {patientProfileData[activePatient.id].abha_number || '-'}</p>
-                      <p className="micro">ABHA address: {patientProfileData[activePatient.id].abha_address || '-'}</p>
                       <p className="micro">Sex: {patientProfileData[activePatient.id].sex || '-'}</p>
                       <p className="micro">Body metrics: {[patientProfileData[activePatient.id].weight_kg ? `${patientProfileData[activePatient.id].weight_kg} kg` : '', patientProfileData[activePatient.id].height_cm ? `${patientProfileData[activePatient.id].height_cm} cm` : ''].filter(Boolean).join(' • ') || '-'}</p>
                       <p className="micro">Conditions: {(patientProfileData[activePatient.id].conditions || []).join(', ') || '-'}</p>

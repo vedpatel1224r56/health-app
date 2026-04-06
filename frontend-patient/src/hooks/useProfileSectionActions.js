@@ -29,6 +29,10 @@ export function useProfileSectionActions({
   mapProfilePayloadToForm,
   loadAbhaHistory,
 }) {
+  const isLocalDemoHost =
+    typeof window !== "undefined" &&
+    ["localhost", "127.0.0.1"].includes(window.location.hostname || "");
+
   const openRecordUploader = useCallback(() => {
     recordsInputRef.current?.click();
   }, [recordsInputRef]);
@@ -186,6 +190,29 @@ export function useProfileSectionActions({
     [activeMemberId, apiBase, apiFetch, loadRecords, loadReportInsights, setRecordStatus],
   );
 
+  const seedDemoReports = useCallback(async () => {
+    if (!isLocalDemoHost) return;
+    setRecordStatus("");
+    try {
+      const response = await apiFetch(`${apiBase}/api/records/demo-seed`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          memberId: activeMemberId || null,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setRecordStatus(data.error || "Unable to load demo reports.");
+        return;
+      }
+      setRecordStatus(`Loaded ${data.created || 0} demo lab reports.`);
+      await Promise.all([loadRecords(activeMemberId), loadReportInsights(activeMemberId)]);
+    } catch (error) {
+      setRecordStatus("Network error. Check backend connection.");
+    }
+  }, [activeMemberId, apiBase, apiFetch, isLocalDemoHost, loadRecords, loadReportInsights, setRecordStatus]);
+
   const generateSharePass = useCallback(async () => {
     if (!authToken || !user?.id) {
       setSharePassStatus("Sign in first.");
@@ -274,10 +301,12 @@ export function useProfileSectionActions({
   ]);
 
   return {
+    isLocalDemoHost,
     openRecordUploader,
     saveProfile,
     uploadRecord,
     deleteRecord,
+    seedDemoReports,
     generateSharePass,
     requestAbhaVerification,
   };

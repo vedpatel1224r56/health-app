@@ -26,6 +26,8 @@ export function ReportsPanel({
   autoSuggestRecordAnalysis,
   saveRecordAnalysis,
   openRecordUploader,
+  seedDemoReports,
+  isLocalDemoHost,
   recordsInputRef,
   uploadRecord,
   recordStatus,
@@ -87,6 +89,9 @@ export function ReportsPanel({
       <div className="report-insights-topbar">
         <div className="action-row">
           <button type="button" className="primary" onClick={openRecordUploader}>Upload your lab reports</button>
+          {isLocalDemoHost ? (
+            <button type="button" className="secondary" onClick={seedDemoReports}>Load demo reports</button>
+          ) : null}
         </div>
         <label className="report-month-filter">
           Trend window

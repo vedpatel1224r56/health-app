@@ -904,10 +904,6 @@ function App() {
   };
 
   const openPatientTab = (tabKey) => {
-    if (tabKey === "labs") {
-      setActivePatientTab("home");
-      return;
-    }
     setActivePatientTab(tabKey);
     if (tabKey === "triage") {
       setShowTriageDisclaimer(true);
@@ -1757,10 +1753,12 @@ function App() {
   };
 
   const {
+    isLocalDemoHost,
     openRecordUploader,
     saveProfile,
     uploadRecord,
     deleteRecord,
+    seedDemoReports,
     generateSharePass,
     requestAbhaVerification,
   } = useProfileSectionActions({
@@ -2663,12 +2661,6 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (activePatientTab === "labs") {
-      setActivePatientTab("home");
-    }
-  }, [activePatientTab]);
-
-  useEffect(() => {
     let active = true;
     const loadLiveStats = async () => {
       try {
@@ -2973,6 +2965,7 @@ function App() {
       { key: "appointments", label: "Visits", icon: "🗓" },
       { key: "triage", label: "Triage", icon: "🩺" },
       { key: "clinical", label: "Records", icon: "📋" },
+      { key: "labs", label: "Labs", icon: "🧪" },
       { key: "hospital", label: "Hospital", icon: "🏥" },
     ];
     const menuTabs = [
@@ -3176,6 +3169,8 @@ function App() {
               autoSuggestRecordAnalysis={autoSuggestRecordAnalysis}
               saveRecordAnalysis={saveRecordAnalysis}
               openRecordUploader={openRecordUploader}
+              seedDemoReports={seedDemoReports}
+              isLocalDemoHost={isLocalDemoHost}
               recordsInputRef={recordsInputRef}
               uploadRecord={uploadRecord}
               recordStatus={recordStatus}
@@ -3215,6 +3210,57 @@ function App() {
               setTriageHistoryLevel={setTriageHistoryLevel}
               filteredHistory={filteredHistory}
             />
+          )}
+
+          {activePatientTab === "labs" && (
+            <section className="panel">
+              <h2>Labs</h2>
+              <p className="panel-sub">Compare nearby labs by turnaround time and home collection support.</p>
+              <MarketplaceView
+                type="labs"
+                labListings={labListings}
+                pharmacyListings={pharmacyListings}
+                labAreaSearch={labAreaSearch}
+                setLabAreaSearch={setLabAreaSearch}
+                labArea={labArea}
+                setLabArea={setLabArea}
+                labAreas={labAreas}
+                labMode={labMode}
+                setLabMode={setLabMode}
+                activeLabId={activeLabId}
+                setActiveLabId={setActiveLabId}
+                labSort={labSort}
+                setLabSort={setLabSort}
+                pharmacySearch={pharmacySearch}
+                setPharmacySearch={setPharmacySearch}
+                pharmacyMode={pharmacyMode}
+                setPharmacyMode={setPharmacyMode}
+                pharmacySort={pharmacySort}
+                setPharmacySort={setPharmacySort}
+                cartItems={cartItems}
+                cartTotal={cartTotal}
+                setCartOpen={setCartOpen}
+                marketplaceLoading={marketplaceLoading}
+                marketplaceRequests={marketplaceRequests}
+                marketplaceTimelineOpenByRequest={marketplaceTimelineOpenByRequest}
+                toggleMarketplaceRequestTimeline={toggleMarketplaceRequestTimeline}
+                updateMarketplaceRequestStatus={updateMarketplaceRequestStatus}
+                marketplaceTimelineByRequest={marketplaceTimelineByRequest}
+                marketplaceTimelineLoadingByRequest={marketplaceTimelineLoadingByRequest}
+                marketplaceStatus={marketplaceStatus}
+                marketplaceAnalytics={marketplaceAnalytics}
+                labRequestsView={labRequestsView}
+                setLabRequestsView={setLabRequestsView}
+                pharmacyRequestsView={pharmacyRequestsView}
+                setPharmacyRequestsView={setPharmacyRequestsView}
+                sortLabs={sortLabs}
+                sortPharmacies={sortPharmacies}
+                formatPriceLastUpdated={formatPriceLastUpdated}
+                formatFulfillmentTime={formatFulfillmentTime}
+                formatMarketplaceStatus={formatMarketplaceStatus}
+                addToCart={addToCart}
+              />
+            </section>
           )}
 
           {activePatientTab === "pharmacy" && (

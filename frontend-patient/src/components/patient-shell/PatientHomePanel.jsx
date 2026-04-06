@@ -11,8 +11,6 @@ export function PatientHomePanel({
   lastGuidance,
   t,
   openProfileEditor,
-  abhaHistory,
-  requestAbhaVerification,
   sharePass,
   sharePassStatus,
   shareQr,
@@ -32,21 +30,6 @@ export function PatientHomePanel({
       : String(nextAppointment?.status || "")
           .replace(/_/g, " ")
           .replace(/\b\w/g, (char) => char.toUpperCase());
-  const abhaStatus = String(profileForm?.abhaStatus || "not_linked").toLowerCase();
-  const abhaStatusLabel =
-    abhaStatus === "verified"
-      ? "Verified"
-      : abhaStatus === "pending_verification"
-        ? "Pending verification"
-      : abhaStatus === "verification_rejected"
-        ? "Needs correction"
-      : abhaStatus === "self_reported"
-        ? "Self reported"
-        : "Not linked";
-  const abhaSummary =
-    profileForm?.abhaNumber || profileForm?.abhaAddress
-      ? [profileForm?.abhaNumber, profileForm?.abhaAddress].filter(Boolean).join(" • ")
-      : "Add ABHA number or ABHA address in profile.";
   const quickActions = [
     {
       key: "triage",
@@ -120,28 +103,6 @@ export function PatientHomePanel({
               ? `${nextAppointment.department_name || nextAppointment.department}${nextAppointment.doctor_name ? ` • ${formatDoctorName(nextAppointment.doctor_name)}` : ""}${nextAppointment.status ? ` • ${nextAppointmentStatusLabel}` : ""}`
               : "Book a visit from Appointments."}
           </p>
-        </article>
-
-        <article className="pass-card patient-surface-card">
-          <p className="history-headline">ABHA link status</p>
-          <p className={`member-metric abha-status-value is-${abhaStatus}`}>{abhaStatusLabel}</p>
-          <p className="micro">{abhaSummary}</p>
-          <div className="action-row">
-            <button type="button" className="ghost" onClick={openProfileEditor}>
-              Manage ABHA
-            </button>
-            {abhaStatus !== "verified" ? (
-              <button
-                type="button"
-                className="secondary"
-                onClick={requestAbhaVerification}
-                disabled={!(profileForm?.abhaNumber || profileForm?.abhaAddress) || abhaStatus === "pending_verification"}
-              >
-                {abhaStatus === "pending_verification" ? "Pending" : abhaStatus === "verification_rejected" ? "Request again" : "Request verification"}
-              </button>
-            ) : null}
-          </div>
-          {abhaHistory?.[0]?.notes ? <p className="micro">{abhaHistory[0].notes}</p> : null}
         </article>
 
         <article className="pass-card patient-surface-card">
