@@ -126,6 +126,8 @@ const REPORT_GROUPS = [
   { key: 'anthropometry', title: 'Body metrics panel', metricKeys: ['weight', 'bmi'] },
 ]
 
+const SHOW_DOCTOR_REPORT_TRENDS = false
+
 function getEncounterVitalsDisplay(encounter, draftText = '') {
   if (encounter?.vitals?.summary) return encounter.vitals.summary
   if (encounter?.vitals_json) {
@@ -1133,7 +1135,7 @@ export function DoctorConsoleWorkspace({
     { key: 'notes', label: 'Notes', count: notes.length || (noteDraft ? 1 : 0) },
     { key: 'prescription', label: 'Prescription', count: prescriptions.length || (prescriptionDraft?.items || []).filter((item) => Object.values(item || {}).some(Boolean)).length },
     { key: 'orders', label: 'Orders', count: orders.length },
-    { key: 'reportInsights', label: 'Report insights', count: reportInsights?.trends?.length || 0 },
+    { key: 'reportInsights', label: 'Reports', count: reportInsights?.records?.length || 0 },
   ]
   useEffect(() => {
     if (!isRemoteConsult && ['chat', 'audio', 'video'].includes(activeTab)) {
@@ -2725,140 +2727,144 @@ export function DoctorConsoleWorkspace({
                 <div className="doctor-workspace-card">
                   <div className="section-head compact">
                     <div>
-                      <p className="micro strong">Report insights</p>
-                      <p className="micro">Review uploaded patient reports as structured trends across the selected time window.</p>
+                      <p className="micro strong">Patient reports</p>
+                      <p className="micro">View uploaded reports and download them during the consult.</p>
                     </div>
-                    <label className="report-month-filter">
-                      Trend window
-                      <select value={String(reportInsightsMonths)} onChange={(event) => setReportInsightsMonths(Number(event.target.value))}>
-                        <option value="3">3 months</option>
-                        <option value="6">6 months</option>
-                        <option value="12">12 months</option>
-                      </select>
-                    </label>
                   </div>
                   {reportInsightsStatus ? <p className="micro">{reportInsightsStatus}</p> : null}
-                  <div className="doctor-report-hero">
-                    <div className="doctor-report-hero-copy">
-                      <p className="micro strong">Clinical review summary</p>
-                      <h3>Lab trend review</h3>
-                      <p>{reportInsights?.doctorSummary || 'No structured report values are available for this patient yet.'}</p>
-                    </div>
-                    <div className="doctor-report-hero-stats">
-                      <div className="doctor-report-stat">
-                        <span className="doctor-report-stat-label">Tracked metrics</span>
-                        <strong>{(reportInsights?.trends || []).length}</strong>
-                      </div>
-                      <div className="doctor-report-stat">
-                        <span className="doctor-report-stat-label">Condition panels</span>
-                        <strong>{groupedReportPanels.length}</strong>
-                      </div>
-                      <div className="doctor-report-stat">
-                        <span className="doctor-report-stat-label">Recent uploads</span>
-                        <strong>{(reportInsights?.latestReports || []).length}</strong>
-                      </div>
-                    </div>
-                  </div>
-                  {(reportInsights?.badges || []).length ? (
-                    <div className="report-badge-strip">
-                      {reportInsights.badges.map((badge) => (
-                        <div key={badge.key} className={`report-badge report-zone-${badge.zone}`}>{badge.label}</div>
-                      ))}
-                    </div>
-                  ) : null}
-                  {(reportInsights?.conditionSummaries || []).length ? (
-                    <div className="history-list compact-list">
-                      {reportInsights.conditionSummaries.map((item) => (
-                        <div key={item.key} className="history-card">
-                          <p className="history-headline">{item.title}</p>
-                          <p className={`micro report-zone-${item.zone}`}>{item.summary}</p>
+                  {SHOW_DOCTOR_REPORT_TRENDS ? (
+                    <>
+                      <label className="report-month-filter">
+                        Trend window
+                        <select value={String(reportInsightsMonths)} onChange={(event) => setReportInsightsMonths(Number(event.target.value))}>
+                          <option value="3">3 months</option>
+                          <option value="6">6 months</option>
+                          <option value="12">12 months</option>
+                        </select>
+                      </label>
+                      <div className="doctor-report-hero">
+                        <div className="doctor-report-hero-copy">
+                          <p className="micro strong">Clinical review summary</p>
+                          <h3>Lab trend review</h3>
+                          <p>{reportInsights?.doctorSummary || 'No structured report values are available for this patient yet.'}</p>
                         </div>
-                      ))}
-                    </div>
-                  ) : null}
-                  <div className="report-view-switch">
-                    <button
-                      type="button"
-                      className={reportViewMode === 'condition' ? 'active' : ''}
-                      onClick={() => setReportViewMode('condition')}
-                    >
-                      Condition view
-                    </button>
-                    <button
-                      type="button"
-                      className={reportViewMode === 'metrics' ? 'active' : ''}
-                      onClick={() => setReportViewMode('metrics')}
-                    >
-                      All metrics view
-                    </button>
-                  </div>
-                  {reportViewMode === 'condition' ? (
-                    <div className="report-condition-stack">
-                      {groupedReportPanels.length ? groupedReportPanels.map((panel) => (
-                        <article key={panel.key} className="report-condition-panel">
-                          <div className="report-condition-head">
-                            <div>
-                              <p className="micro strong">{panel.title}</p>
-                              <h3>{panel.summary?.title || panel.title}</h3>
-                              <p className="micro report-condition-meta">
-                                {panel.trends.length} tracked metric{panel.trends.length === 1 ? '' : 's'}
-                              </p>
-                            </div>
-                            <div className="report-condition-actions">
-                              {panel.summary ? (
-                                <span className={`report-badge report-badge-soft report-zone-${panel.summary.zone}`}>
-                                  {panel.summary.zone === 'high' ? 'Needs attention' : panel.summary.zone === 'low' ? 'Watch trend' : 'Stable'}
-                                </span>
-                              ) : null}
-                              <button
-                                type="button"
-                                className="mini-action"
-                                onClick={() =>
-                                  setCollapsedReportPanels((prev) => ({
-                                    ...prev,
-                                    [panel.key]: !prev[panel.key],
-                                  }))
-                                }
-                              >
-                                {collapsedReportPanels[panel.key] ? 'Expand' : 'Collapse'}
-                              </button>
-                            </div>
+                        <div className="doctor-report-hero-stats">
+                          <div className="doctor-report-stat">
+                            <span className="doctor-report-stat-label">Tracked metrics</span>
+                            <strong>{(reportInsights?.trends || []).length}</strong>
                           </div>
-                          <p className="micro">{panel.summary?.summary || 'Grouped lab metrics for easier consult review.'}</p>
-                          {!collapsedReportPanels[panel.key] ? (
-                            <div className="report-trend-grid report-trend-grid-condensed report-trend-grid-compact">
-                              {panel.trends.map((trend) => (
-                                <ReportTrendChart
-                                  key={trend.metricKey}
-                                  title={trend.metricLabel}
-                                  unit={trend.unit}
-                                  points={trend.points}
-                                  zone={trend.zone}
-                                  needsReview={trend.needsReview}
-                                  compact
-                                />
-                              ))}
+                          <div className="doctor-report-stat">
+                            <span className="doctor-report-stat-label">Condition panels</span>
+                            <strong>{groupedReportPanels.length}</strong>
+                          </div>
+                          <div className="doctor-report-stat">
+                            <span className="doctor-report-stat-label">Recent uploads</span>
+                            <strong>{(reportInsights?.latestReports || []).length}</strong>
+                          </div>
+                        </div>
+                      </div>
+                      {(reportInsights?.badges || []).length ? (
+                        <div className="report-badge-strip">
+                          {reportInsights.badges.map((badge) => (
+                            <div key={badge.key} className={`report-badge report-zone-${badge.zone}`}>{badge.label}</div>
+                          ))}
+                        </div>
+                      ) : null}
+                      {(reportInsights?.conditionSummaries || []).length ? (
+                        <div className="history-list compact-list">
+                          {reportInsights.conditionSummaries.map((item) => (
+                            <div key={item.key} className="history-card">
+                              <p className="history-headline">{item.title}</p>
+                              <p className={`micro report-zone-${item.zone}`}>{item.summary}</p>
                             </div>
-                          ) : null}
-                        </article>
-                      )) : <p className="micro">No grouped condition trends available yet.</p>}
-                    </div>
-                  ) : (
-                    <div className="report-trend-grid report-trend-grid-compact">
-                      {(reportInsights?.trends || []).map((trend) => (
-                        <ReportTrendChart
-                          key={trend.metricKey}
-                          title={trend.metricLabel}
-                          unit={trend.unit}
-                          points={trend.points}
-                          zone={trend.zone}
-                          needsReview={trend.needsReview}
-                          compact
-                        />
-                      ))}
-                      {!(reportInsights?.trends || []).length ? <p className="micro">No report trends available yet.</p> : null}
-                    </div>
-                  )}
+                          ))}
+                        </div>
+                      ) : null}
+                      <div className="report-view-switch">
+                        <button
+                          type="button"
+                          className={reportViewMode === 'condition' ? 'active' : ''}
+                          onClick={() => setReportViewMode('condition')}
+                        >
+                          Condition view
+                        </button>
+                        <button
+                          type="button"
+                          className={reportViewMode === 'metrics' ? 'active' : ''}
+                          onClick={() => setReportViewMode('metrics')}
+                        >
+                          All metrics view
+                        </button>
+                      </div>
+                      {reportViewMode === 'condition' ? (
+                        <div className="report-condition-stack">
+                          {groupedReportPanels.length ? groupedReportPanels.map((panel) => (
+                            <article key={panel.key} className="report-condition-panel">
+                              <div className="report-condition-head">
+                                <div>
+                                  <p className="micro strong">{panel.title}</p>
+                                  <h3>{panel.summary?.title || panel.title}</h3>
+                                  <p className="micro report-condition-meta">
+                                    {panel.trends.length} tracked metric{panel.trends.length === 1 ? '' : 's'}
+                                  </p>
+                                </div>
+                                <div className="report-condition-actions">
+                                  {panel.summary ? (
+                                    <span className={`report-badge report-badge-soft report-zone-${panel.summary.zone}`}>
+                                      {panel.summary.zone === 'high' ? 'Needs attention' : panel.summary.zone === 'low' ? 'Watch trend' : 'Stable'}
+                                    </span>
+                                  ) : null}
+                                  <button
+                                    type="button"
+                                    className="mini-action"
+                                    onClick={() =>
+                                      setCollapsedReportPanels((prev) => ({
+                                        ...prev,
+                                        [panel.key]: !prev[panel.key],
+                                      }))
+                                    }
+                                  >
+                                    {collapsedReportPanels[panel.key] ? 'Expand' : 'Collapse'}
+                                  </button>
+                                </div>
+                              </div>
+                              <p className="micro">{panel.summary?.summary || 'Grouped lab metrics for easier consult review.'}</p>
+                              {!collapsedReportPanels[panel.key] ? (
+                                <div className="report-trend-grid report-trend-grid-condensed report-trend-grid-compact">
+                                  {panel.trends.map((trend) => (
+                                    <ReportTrendChart
+                                      key={trend.metricKey}
+                                      title={trend.metricLabel}
+                                      unit={trend.unit}
+                                      points={trend.points}
+                                      zone={trend.zone}
+                                      needsReview={trend.needsReview}
+                                      compact
+                                    />
+                                  ))}
+                                </div>
+                              ) : null}
+                            </article>
+                          )) : <p className="micro">No grouped condition trends available yet.</p>}
+                        </div>
+                      ) : (
+                        <div className="report-trend-grid report-trend-grid-compact">
+                          {(reportInsights?.trends || []).map((trend) => (
+                            <ReportTrendChart
+                              key={trend.metricKey}
+                              title={trend.metricLabel}
+                              unit={trend.unit}
+                              points={trend.points}
+                              zone={trend.zone}
+                              needsReview={trend.needsReview}
+                              compact
+                            />
+                          ))}
+                          {!(reportInsights?.trends || []).length ? <p className="micro">No report trends available yet.</p> : null}
+                        </div>
+                      )}
+                    </>
+                  ) : null}
                   <div className="history-list compact-list" style={{ marginTop: 16 }}>
                     {(reportInsights?.records || []).map((record) => (
                       <div key={`doctor-report-record-${record.id}`} className="history-card">
